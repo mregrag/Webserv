@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 16:54:43 by mregrag           #+#    #+#             */
-/*   Updated: 2025/02/25 23:17:41 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/03/18 20:20:27 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,37 +15,39 @@
 
 #include <string>
 #include <vector>
-
+#include <iostream>
 
 class LocationConfig
 {
-	private:
-		std::string _path;
-		std::string _root;
-		std::string _index;
-		std::vector<std::string> _allowedMethods;
-		bool _autoindex;
-
 	public:
-		// Orthodox Canonical Form
 		LocationConfig();
+		~LocationConfig();
 		LocationConfig(const LocationConfig& other);
 		LocationConfig& operator=(const LocationConfig& other);
-		~LocationConfig();
 
-		// Getters
-		const std::string& getPath() const;
-		const std::string& getRoot() const;
-		const std::string& getIndex() const;
-		const std::vector<std::string>& getAllowedMethods() const;
-		bool getAutoindex() const;
-
-		// Setters
-		void setPath(const std::string& path);
 		void setRoot(const std::string& root);
 		void setIndex(const std::string& index);
-		void addAllowedMethod(const std::string& method);
 		void setAutoindex(bool autoindex);
-};
-#endif // LOCATION_CONFIG_HPP
+		void setAllowedMethods(const std::vector<std::string>& methods);
+		void setCgiExtension(const std::string& extension);
+		void setCgiPath(const std::string& path);
 
+		const std::string& getRoot() const;
+		const std::string& getIndex() const;
+		bool getAutoindex() const;
+		const std::vector<std::string>& getAllowedMethods() const;
+		const std::string& getCgiExtension() const;
+		const std::string& getCgiPath() const;
+
+		void print() const;
+
+	private:
+		std::string _root;
+		std::string _index;
+		bool _autoindex;
+		std::vector<std::string> _allowedMethods;
+		std::string _cgiExtension;
+		std::string _cgiPath;
+};
+
+#endif

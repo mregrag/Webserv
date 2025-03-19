@@ -6,24 +6,28 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:16:39 by mregrag           #+#    #+#             */
-/*   Updated: 2025/02/25 23:19:06 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/03/19 01:45:49 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef CONFIGPARSER_HPP
 #define CONFIGPARSER_HPP
 
+#include "ServerConfig.hpp"
 #include <string>
 #include <vector>
-#include "../include/ServerConfig.hpp"
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+#include <cctype>
+#include <iostream>
 
-class ConfigParser
+class ConfigParser 
 {
 	private:
 		std::vector<ServerConfig> _servers;
 		std::string _configFilePath;
 
-		// Private helper methods
 		void parseFile();
 		void parseServerBlock(const std::string& block);
 		LocationConfig parseLocationBlock(const std::string& block);
@@ -32,16 +36,15 @@ class ConfigParser
 		std::vector<std::string> split(const std::string& str, char delimiter);
 
 	public:
-		// Orthodox Canonical Form
 		ConfigParser();
 		ConfigParser(const std::string& configFilePath);
 		ConfigParser(const ConfigParser& other);
 		ConfigParser& operator=(const ConfigParser& other);
 		~ConfigParser();
 
-		// Public methods
 		bool parse();
-		const std::vector<ServerConfig>& getServers() const;
+		const std::vector<ServerConfig>& getServers();
+		void print() const;
 };
 
-#endif 
+#endif

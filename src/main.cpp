@@ -6,74 +6,48 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/24 21:18:46 by mregrag           #+#    #+#             */
-/*   Updated: 2025/02/25 23:47:34 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/03/19 01:57:39 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/ConfigParser.hpp"
-#include <iostream>
 
-// main.cpp - Example usage of Configuration Parser
-#include "../include/ServerConfig.hpp"
-#include <iostream>
-#include <string>
 
-void printServerConfig(const ServerConfig& config)
+int main(int argc, char **argv)
 {
-	std::cout << "Server Configuration:" << std::endl;
-	std::cout << "Port: " << config.getPort() << std::endl;
-	std::cout << "Host: " << config.getHost() << std::endl;
-	std::cout << "Server Name: " << config.getServerName() << std::endl;
-	std::cout << "Client Max Body Size: " << config.getClientMaxBodySize() << std::endl;
-
-	std::cout << "\nError Pages:" << std::endl;
-	const std::map<int, std::string>& errorPages = config.getErrorPages();
-	std::map<int, std::string>::const_iterator it;
-	for (it = errorPages.begin(); it != errorPages.end(); ++it)
-		std::cout << "  " << it->first << ": " << it->second << std::endl;
-
-	std::cout << "\nLocations:" << std::endl;
-	const std::vector<LocationConfig>& locations = config.getLocations();
-	for (size_t i = 0; i < locations.size(); ++i) {
-		const LocationConfig& loc = locations[i];
-		std::cout << "  Location: " << loc.getPath() << std::endl;
-		std::cout << "    Root: " << loc.getRoot() << std::endl;
-		std::cout << "    Index: " << loc.getIndex() << std::endl;
-		std::cout << "    Autoindex: " << (loc.getAutoindex() ? "on" : "off") << std::endl;
-
-		std::cout << "    Allowed Methods: ";
-		const std::vector<std::string>& methods = loc.getAllowedMethods();
-		for (size_t j = 0; j < methods.size(); ++j) {
-			std::cout << methods[j];
-			if (j < methods.size() - 1) {
-				std::cout << ", ";
-			}
-		}
-		std::cout << std::endl;
-	}
-	std::cout << std::endl;
-}
-
-int main(int argc, char* argv[])
-{
-	if (argc == 2 || argc == 1)
+	if (argc != 1 && argc != 2)
 	{
-		std::string configPath;
-		configPath = (argc == 1? "config/default.conf" : argv[1]);
-		ConfigParser parser(configPath);
-
-		if (!parser.parse()) {
-			std::cerr << "Failed to parse configuration file." << std::endl;
-			return 1;
-		}
-		const std::vector<ServerConfig>& servers = parser.getServers();
-		std::cout << "Parsed " << servers.size() << " server configurations." << std::endl;
-
-		for (size_t i = 0; i < servers.size(); ++i) {
-			printServerConfig(servers[i]);
-		}
+		std::cout << "Usage: " << argv[0] << " [config_file]\n";
+		return (1);
 	}
 
+	try
+	{
+		std::string configFile = (argc == 1) ? "config/config.conf" : argv[1];
 
-	return 0;
+		ConfigParser config(configFile);
+		if (!config.parse())
+		{
+			std::cout << "Failed to parse configuration file.\n";
+			return (1);
+		}
+		std::vector<ServerConfig> servers = config.getServers();
+		for (std::vector<ServerConfig>::iterator it = servers.begin(); it != servers.end(); ++it)
+		{
+			it->setupServer();
+			it->startServer();
+		}
+		/*config.print();*/
+
+		/*ServerManager server;*/
+		/*server.setupServer(config.getServers());*/
+		/*server.runServer();*/
+	}
+	catch (const std::exception& e)
+	{
+		std::cerr << "Error: " << e.what() << "\n";
+		return (1);
+	}
+	return (0);
 }
+
