@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ServerConfig.hpp                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
+/*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/24 21:24:19 by mregrag           #+#    #+#             */
-/*   Updated: 2025/03/19 01:56:03 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/03/19 20:06:09 by zel-oirg         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -50,11 +50,6 @@ class ServerConfig
 		const std::map<int, std::string>& getErrorPages() const;
 		const std::map<std::string, LocationConfig>& getLocations() const;
 
-		void print() const;
-		  // Socket and server setup
-		void setupServer();
-		void startServer();
-
 	private:
 		std::string _host;
 		uint16_t _port;
@@ -62,13 +57,7 @@ class ServerConfig
 		size_t _clientMaxBodySize;
 		std::map<int, std::string> _errorPages;
 		std::map<std::string, LocationConfig> _locations;
-		struct sockaddr_in 			_server_address;
 		int     				_listen_fd;
-
-		void createSocket();
-		void bindSocket();
-		void listenForConnections();
-		void acceptConnections();
 
 };
 

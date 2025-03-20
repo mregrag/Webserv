@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ConfigParser.cpp                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
+/*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:29:36 by mregrag           #+#    #+#             */
-/*   Updated: 2025/03/19 01:46:12 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/03/19 05:07:37 by zel-oirg         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -58,7 +58,7 @@ void ConfigParser::print() const
 	for (size_t i = 0; i < _servers.size(); ++i)
 	{
 		std::cout << "Server " << i + 1 << ":\n";
-		_servers[i].print();
+		// _servers[i].print();
 	}
 }
 
