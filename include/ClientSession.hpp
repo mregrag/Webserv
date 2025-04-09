@@ -1,12 +1,12 @@
 #ifndef CLIENT_SESSION_HPP
 #define CLIENT_SESSION_HPP
 
-
+#include "webserver.hpp"
 
 class ClientSession
 {
 public:
-    ClientSession(int clientFd, const ServerConfig& config);
+    ClientSession(int clientFd);
     ~ClientSession();
 
     bool handleRequest();  // Reads request data and parses it
@@ -15,9 +15,8 @@ public:
 
 private:
     int _clientFd; // Client socket
-    ServerConfig _config;
-    // HTTPRequest _request;
-    // HTTPResponse _response;
+    HTTPRequest _request;
+    HTTPResponse _response;
 };
 
 

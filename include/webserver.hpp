@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <cstring>
 
+#include "HTTPRequest.hpp"
+#include "HTTPResponse.hpp"
 #include "EpollManager.hpp"
 #include "ServerConfig.hpp"
 #include "ServerInstance.hpp"

@@ -28,26 +28,23 @@ ServerManager::~ServerManager()
 
 void    ServerManager::run()
 {
-    EpollManager                    epollInstance;
     std::vector<struct epoll_event> events;
 
     for (std::vector<ServerInstance>::iterator it = _servers.begin()
             ; it != _servers.end(); it++)
-    {
-        epollInstance.addFd((*it).getListenFd(), EPOLLIN);
-    }
+        _epollInstance.addFd((*it).getListenFd(), EPOLLIN);
 
     while (true)
     {
-        int num_event = epollInstance.wait(events, -1);
+        int num_event = _epollInstance.wait(events, -1);
         for (int i = 0; i < num_event; i++)
         {
             int eventFd = events.data()[i].data.fd;
             for (std::vector<ServerInstance>::iterator it = _servers.begin()
                 ; it != _servers.end(); it++)
             {
-                if (eventFd == (*it).getListenFd()) 
-                    handleNewConnection((*it).getListenFd());
+                if (eventFd == (*it).getListenFd()) // new connection
+                    handleNewConnection(eventFd, *it, _epollInstance);
                 else
                     handleClientEvent(eventFd);
             }
@@ -55,14 +52,28 @@ void    ServerManager::run()
     }
 }
 
-void    ServerManager::handleNewConnection(int serverFd)
+
+
+void    ServerManager::handleNewConnection(int serverFd,  ServerInstance &server,  EpollManager& epollInstance)
 {
-    std::cout << "handle New Connection" << std::endl;
-    (void)serverFd;
+    struct sockaddr_in  client_addr;
+    socklen_t           addr_size = sizeof(client_addr);
+
+    addr_size ;
+    int client_sock = accept(server.getListenFd(), (sockaddr*)&client_addr, &addr_size);
+    if (client_sock == -1)
+        throw(std::runtime_error("error: accepting conection!"));
+    
+    int flags = fcntl(client_sock, F_GETFL, 0);
+    fcntl(client_sock, F_SETFL, flags | O_NONBLOCK);
+    
+    std::cout << "client_sock = " << client_sock << std::endl;
+    epollInstance.addFd(client_sock, EPOLLIN | EPOLLET);
+    ClientSession   client(serverFd);
+    _clients[client_sock] = &client;
 }
 
 void    ServerManager::handleClientEvent(int clientFd)
 {
-    std::cout << "handle Client Event" << std::endl;
-    (void) clientFd;
+    _clients[clientFd]->handleRequest();
 }

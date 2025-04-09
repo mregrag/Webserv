@@ -48,7 +48,6 @@ int EpollManager::wait(std::vector<struct epoll_event>& events, int timeout)
 {
     events.resize(MAX_EVENTS);
     int numEvent = epoll_wait(_epollFd, events.data(), MAX_EVENTS, timeout);
-    std::cout << numEvent << std::endl;
     if (numEvent == -1)
         throw std::runtime_error("epoll_wait failed");
     return numEvent;
