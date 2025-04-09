@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/28 00:24:59 by mregrag           #+#    #+#             */
-/*   Updated: 2025/03/17 22:47:57 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/09 21:49:17 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,90 +16,90 @@ ConfigFile::ConfigFile() : _path(""), _size(0)
 {
 }
 
-// Constructor with path parameter
-ConfigFile::ConfigFile(std::string const path) : _path(path), _size(0)
+ConfigFile::ConfigFile(const std::string& path) : _path(path), _size(0) 
 {
-	struct stat st;
-	if (stat(path.c_str(), &st) == 0)
-		_size = st.st_size;
+	struct stat fileStat;
+	if (stat(path.c_str(), &fileStat) == 0) 
+		_size = fileStat.st_size;
 }
 
-// Copy constructor
-ConfigFile::ConfigFile(const ConfigFile &rhs) : _path(rhs._path), _size(rhs._size)
+ConfigFile::ConfigFile(const ConfigFile& other)
 {
+	*this = other;
 }
 
-// Assignment operator
-ConfigFile &ConfigFile::operator=(const ConfigFile &rhs)
+ConfigFile& ConfigFile::operator=(const ConfigFile& other) 
 {
-	if (this != &rhs)
+	if (this != &other) 
 	{
-		_path = rhs._path;
-		_size = rhs._size;
+		_path = other._path;
+		_size = other._size;
 	}
 	return *this;
 }
 
-// Destructor
-ConfigFile::~ConfigFile()
+ConfigFile::~ConfigFile() 
 {
-	// Nothing to free for now
 }
 
-// Returns type of path: 0 = does not exist, 1 = regular file, 2 = directory, 3 = rhs type
-int ConfigFile::getTypePath(std::string const path)
+int ConfigFile::getTypePath(const std::string &path)
 {
-	struct stat st;
-	if (stat(path.c_str(), &st) != 0) 
-		return 0; // Does not exist
-	if (S_ISREG(st.st_mode))
-		return 1; // Regular file
-	if (S_ISDIR(st.st_mode))
-		return 2; // Directory
-	return 3; // Other type (e.g., device, pipe, etc.)
+	struct stat fileStat;
+	if (stat(path.c_str(), &fileStat) != 0) 
+		return 0; 
+	if (S_ISREG(fileStat.st_mode))
+		return 1;
+	if (S_ISDIR(fileStat.st_mode))
+		return 2;
+	return 3;
 }
 
-// Check file with mode (0 = check for readability, 1 = check for writability)
-int ConfigFile::checkFile(std::string const path, int mode)
+int ConfigFile::checkFile(const std::string& path, int mode)
 {
-	if (mode == 0) {
-		std::ifstream infile(path.c_str());
-		return (infile.good()) ? 1 : 0;
-	} else if (mode == 1) {
-		std::ofstream outfile(path.c_str(), std::ios::app);
-		return (outfile.good()) ? 1 : 0;
+	switch (mode)
+	{
+		case 0: 
+			return access(path.c_str(), R_OK) == 0 ? 1 : 0;
+		case 1: 
+			return access(path.c_str(), W_OK) == 0 ? 1 : 0;
+		case 2: 
+			return access(path.c_str(), X_OK) == 0 ? 1 : 0;
+		default: 
+			return 0;
 	}
-	return 0;
 }
 
-// Read file contents into a string
-std::string ConfigFile::readFile(std::string path) {
-	std::ifstream infile(path.c_str());
-	if (!infile)
-		return "";
-	std::stringstream buffer;
-	buffer << infile.rdbuf();
-	return buffer.str();
+bool ConfigFile::readFile(const std::string& path, std::string& output) 
+{
+	std::ifstream file(path.c_str());
+	if (!file) 
+		return false;
+
+	std::ostringstream oss;
+	oss << file.rdbuf();
+	output = oss.str();
+
+	return
+		true;
 }
 
 // Check if file exists and is readable. If not, try appending the index string.
-int ConfigFile::isFileExistAndReadable(std::string const path, std::string const index) {
+bool ConfigFile::isFileExistAndReadable(const std::string& path, const std::string& index)
+{
 	std::ifstream infile(path.c_str());
 	if (infile.good())
-		return 1;
+		return true;
 	std::ifstream infile_index((path + index).c_str());
 	return (infile_index.good()) ? 1 : 0;
 }
 
-// Getter for _path
-std::string ConfigFile::getPath()
+const std::string& ConfigFile::getPath() const
 {
 	return _path;
 }
 
-// Getter for _size
-int ConfigFile::getSize()
+size_t ConfigFile::getSize() const
 {
-	return static_cast<int>(_size);
+	return (_size);
 }
 

@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 16:54:43 by mregrag           #+#    #+#             */
-/*   Updated: 2025/03/18 20:20:27 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/09 22:01:03 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,8 +27,8 @@ class LocationConfig
 
 		void setRoot(const std::string& root);
 		void setIndex(const std::string& index);
-		void setAutoindex(bool autoindex);
-		void setAllowedMethods(const std::vector<std::string>& methods);
+		void setAutoindex(const std::string& autoindex);
+		void setAllowedMethods(const std::string& methods);
 		void setCgiExtension(const std::string& extension);
 		void setCgiPath(const std::string& path);
 
@@ -40,6 +40,8 @@ class LocationConfig
 		const std::string& getCgiPath() const;
 
 		void print() const;
+		std::vector<std::string> split(const std::string& str, char delimiter);
+		std::string trim(const std::string& str);
 
 	private:
 		std::string _root;

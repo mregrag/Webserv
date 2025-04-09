@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/24 21:24:19 by mregrag           #+#    #+#             */
-/*   Updated: 2025/03/19 20:06:09 by zel-oirg         ###   ########.fr       */
+/*   Updated: 2025/04/09 23:59:31 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,11 +25,27 @@
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
+#include <netdb.h>     // For getaddrinfo
+#include <arpa/inet.h> // For inet_ntoa
+
 
 
 
 class ServerConfig
 {
+	private:
+		std::string _host;
+		uint16_t _port;
+		std::string _serverName;
+		size_t _clientMaxBodySize;
+		std::map<int, std::string> _errorPages;
+		std::map<std::string, LocationConfig>   _locations;
+		struct sockaddr_in 			_server_address;
+		int     				_listen_fd;
+
+		//utils methode
+		bool isValidHost(const std::string& host);
+
 	public:
 		ServerConfig();
 		~ServerConfig();
@@ -42,22 +58,39 @@ class ServerConfig
 		void setClientMaxBodySize(size_t size);
 		void setErrorPage(int code, const std::string& path);
 		void addLocation(const std::string& path, const LocationConfig& location);
+		void setFd(int fd);
 
-		const std::string& getHost() const;
 		int getPort() const;
-		const std::string& getServerName() const;
+		int   	getFd();
 		size_t getClientMaxBodySize() const;
+		const std::string& getServerName() const;
+		const std::string& getHost() const;
 		const std::map<int, std::string>& getErrorPages() const;
 		const std::map<std::string, LocationConfig>& getLocations() const;
 
-	private:
-		std::string _host;
-		uint16_t _port;
-		std::string _serverName;
-		size_t _clientMaxBodySize;
-		std::map<int, std::string> _errorPages;
-		std::map<std::string, LocationConfig> _locations;
-		int     				_listen_fd;
+		void print() const;
+		  // Socket and server setup
+		void setupServer();
+
+		int acceptConnection();
+
+		class ErrorServer : public std::exception
+		{
+			private:
+				std::string _message;
+			public:
+				ErrorServer(std::string message) throw()
+				{
+					_message = "SERVER ERROR: " + message;
+				}
+				virtual const char* what() const throw()
+				{
+					return (_message.c_str());
+				}
+				virtual ~ErrorServer() throw() {}
+		};
+
+
 
 };
 

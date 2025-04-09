@@ -1,30 +1,57 @@
 #ifndef SERVER_MANAGER_HPP
 #define SERVER_MANAGER_HPP
 
-#include "webserver.hpp"
-
-// class Request;
-// class Response;
-// class Config;
-// class EpollManager;
+#include <iostream>
+#include <vector>
+#include <map>
+#include <string>
+#include <stdexcept>
+#include <sys/epoll.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include "ServerConfig.hpp"
+#include "EpollManager.hpp"
+#include "Logger.hpp"
 
 class ServerManager
 {
-public:
-    ServerManager(const std::vector<ServerConfig>& configs);
-    ~ServerManager();
+	private:
+		EpollManager _epollManager;
+		std::vector<ServerConfig> _servers;
+		std::map<int, ServerConfig*> _server_map;
+		std::map<int, std::string> _client_requests;
 
-    void    run();  // Main event loop handling epoll events
-    void    add_client(int clientFd, int serverFd);
+	public:
+		ServerManager();
+		~ServerManager();
 
-private:
-    void    initServers(const std::vector<ServerConfig> &configs);  // Sets up listening sockets for all servers
-    void    handleNewConnection(int serverFd,  ServerInstance &server, EpollManager& epollInstance);  // Accepts new clients
-    void    handleClientEvent(int clientFd);  // Reads/Writes data for clients
+		void setupServers(const std::vector<ServerConfig>& servers);
+		void run();
+		void handleEvent(struct epoll_event& event);
+		void acceptConnection(ServerConfig& server);
+		void handleClientRequest(int client_fd);
+		void sendResponse(int client_fd, const std::string& response);
+		void closeConnection(int client_fd);
 
-    std::vector<ServerInstance> _servers; // All running server instances
-    std::map<int, ClientSession*> _clients; // Active client connections (fd -> ClientSession)
-    EpollManager _epollInstance; // Epoll instance to manage events
+		class ErrorServer : public std::exception
+		{
+			private:
+				std::string _message;
+			public:
+				ErrorServer(std::string message) throw()
+				{
+					_message = "SERVER ERROR: " + message;
+				}
+				virtual const char* what() const throw()
+				{
+					return (_message.c_str());
+				}
+				virtual ~ErrorServer() throw() {}
+		};
+
+	
 };
 
 #endif
+
+

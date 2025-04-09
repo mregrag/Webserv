@@ -6,46 +6,45 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:29:36 by mregrag           #+#    #+#             */
-/*   Updated: 2025/03/19 05:07:37 by zel-oirg         ###   ########.fr       */
+/*   Updated: 2025/04/09 21:55:49 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/ConfigParser.hpp"
 
-ConfigParser::ConfigParser() : _configFilePath("")
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <string>
+
+ConfigParser::ConfigParser() : _configFile() 
 {
 }
 
-ConfigParser::ConfigParser(const std::string& configFilePath) : _configFilePath(configFilePath)
+ConfigParser::ConfigParser(const std::string& configFilePath) : _configFile(configFilePath)
 {
 }
 
-ConfigParser::ConfigParser(const ConfigParser& other)
+ConfigParser::ConfigParser(const ConfigParser& other) 
 {
 	*this = other;
 }
 
-ConfigParser& ConfigParser::operator=(const ConfigParser& other)
+ConfigParser& ConfigParser::operator=(const ConfigParser& other) 
 {
-	if (this != &other)
+	if (this != &other) 
 	{
+		_configFile = other._configFile;
 		_servers = other._servers;
-		_configFilePath = other._configFilePath;
 	}
 	return *this;
 }
 
-ConfigParser::~ConfigParser()
+ConfigParser::~ConfigParser() 
 {
-}
-
-bool ConfigParser::parse() 
-{
-	if (_configFilePath.empty())
-		return false;
-
-	parseFile();
-	return true;
 }
 
 const std::vector<ServerConfig>& ConfigParser::getServers()
@@ -53,96 +52,268 @@ const std::vector<ServerConfig>& ConfigParser::getServers()
 	return _servers;
 }
 
-void ConfigParser::print() const 
+void ConfigParser::cleanContent() 
 {
-	for (size_t i = 0; i < _servers.size(); ++i)
-	{
-		std::cout << "Server " << i + 1 << ":\n";
-		// _servers[i].print();
-	}
-}
-
-void ConfigParser::parseFile()
-{
-	std::ifstream file(_configFilePath.c_str());
-	if (!file.is_open())
-		throw std::runtime_error("Failed to open configuration file: " + _configFilePath);
-
-	std::stringstream buffer;
-	buffer << file.rdbuf();
-	std::string content = buffer.str();
-
 	size_t pos = 0;
-	while ((pos = content.find("server", pos)) != std::string::npos)
+	while ((pos = _content.find('#', pos)) != std::string::npos) 
 	{
-		size_t blockStart = content.find("{", pos);
-		if (blockStart == std::string::npos)
-			throw std::runtime_error("Invalid server block: missing '{'");
+		size_t end = _content.find('\n', pos);
+		_content.erase(pos, end != std::string::npos ? end - pos : std::string::npos);
+	}
 
-		int braceCount = 1;
-		size_t blockEnd = blockStart + 1;
-		while (braceCount > 0 && blockEnd < content.size())
+	// Trim leading whitespace
+	pos = _content.find_first_not_of(" \t\r\n");
+	if (pos != std::string::npos)
+		_content.erase(0, pos);
+	else 
+	{
+		_content.clear();
+		return;
+	}
+
+	// Trim trailing whitespace
+	pos = _content.find_last_not_of(" \t\r\n");
+	if (pos != std::string::npos)
+		_content.erase(pos + 1);
+
+	// Normalize whitespace (collapse multiple spaces to single space)
+	std::string cleaned;
+	bool inSpace = false;
+	for (size_t i = 0; i < _content.size(); ++i) 
+	{
+		if (_content[i] == '\n') 
 		{
-			if (content[blockEnd] == '{')
-				braceCount++;
-			else if (content[blockEnd] == '}') 
-				braceCount--;
-			blockEnd++;
+			cleaned += '\n';
+			inSpace = false;
 		}
-
-		if (braceCount != 0)
-			throw std::runtime_error("Invalid server block: missing '}'");
-
-		std::string block = content.substr(blockStart + 1, blockEnd - blockStart - 2);
-		parseServerBlock(block);
-		pos = blockEnd;
-	}
-}
-
-// Fixed parseServerBlock method to correctly handle multiple location blocks
-void ConfigParser::parseServerBlock(const std::string& block)
-{
-	ServerConfig server;
-	std::string remainingBlock = block;
-	size_t pos = 0;
-
-	while (pos < remainingBlock.size())
-	{
-		// Skip whitespace and comments
-		while (pos < remainingBlock.size() && (isspace(remainingBlock[pos]) || remainingBlock[pos] == '#'))
+		else if (std::isspace(_content[i])) 
 		{
-			if (remainingBlock[pos] == '#')
+			if (!inSpace) 
 			{
-				// Skip to end of line
-				size_t endLine = remainingBlock.find('\n', pos);
-				if (endLine == std::string::npos)
-					pos = remainingBlock.size();
-				else
-					pos = endLine + 1;
+				cleaned += ' ';
+				inSpace = true;
 			}
-			else
-				pos++;
 		}
+		else 
+		{
+			cleaned += _content[i];
+			inSpace = false;
+		}
+	}
+	_content = cleaned;
+}
 
-		if (pos >= remainingBlock.size())
+void ConfigParser::parseFile() 
+{
+	validateConfigFile();
+
+	readAndPrepareContent();
+
+	parseServerBlocks();
+
+	if (_servers.empty()) 
+		throw ErrorConfig("No valid server configurations found in file: " + _configFile.getPath());
+}
+
+void ConfigParser::validateConfigFile()
+{
+	const std::string& path = _configFile.getPath();
+
+	switch (_configFile.getTypePath(path)) 
+	{
+		case 0: 
+			throw ErrorConfig("Configuration file does not exist: " + path);
+		case 2: 
+			throw ErrorConfig("Path is a directory, not a file: " + path);
+		case 3: 
+			throw ErrorConfig("Path is a special file: " + path);
+		case 1: 
+			break;
+		default: 
+			throw ErrorConfig("Unknown file type: " + path);
+	}
+	if (!_configFile.checkFile(path, 0)) 
+		throw ErrorConfig("No read permission for file: " + path);
+}
+
+void ConfigParser::readAndPrepareContent()
+{
+	const std::string& path = _configFile.getPath();
+
+	if (!_configFile.readFile(path, _content)) 
+		throw ErrorConfig("Failed to read file: " + path);
+
+	if (_content.empty()) 
+		throw ErrorConfig("File is empty: " + path);
+
+	cleanContent();
+
+	if (_content.empty()) 
+		throw ErrorConfig("No valid configuration _content found after cleaning: " + path);
+}
+
+/**
+ * @brief Parse all server blocks in the configuration _content
+ * @param _content The prepared configuration _content
+ */
+void ConfigParser::parseServerBlocks()
+{
+	size_t pos = 0;
+	bool foundServer = false;
+
+	while (pos < _content.length()) 
+	{
+		// Find the next "server" keyword
+		pos = findNextServerKeyword(pos);
+		if (pos == std::string::npos)
 			break;
 
-		// Find the end of the directive
-		size_t endDirective = remainingBlock.find_first_of(";\n{", pos);
+		foundServer = true;
+		size_t blockStart = findOpeningBrace(pos);
+		if (blockStart == std::string::npos) 
+			throw ErrorConfig("Missing '{' after 'server' keyword");
+
+		// Extract server block with proper brace matching
+		std::pair<std::string, size_t> blockInfo = extractBlock(blockStart);
+		std::string serverBlock = blockInfo.first;
+
+		try 
+		{
+			parseServerBlock(serverBlock);
+		}
+		catch (const ErrorConfig& e) 
+		{
+			throw ErrorConfig(std::string("Error in server block: ") + e.what());
+		}
+
+		// Move position past this server block
+		pos = blockInfo.second;
+	}
+
+	// If "server" keyword was found but no valid servers were added
+	if (foundServer && _servers.empty()) 
+		throw ErrorConfig("No valid server configurations found despite server keywords");
+}
+
+/**
+ * @brief Find the next occurrence of the server keyword
+ * @param _content The configuration _content
+ * @param startPos Position to start searching from
+ * @return Position of server keyword or npos if not found
+ */
+size_t ConfigParser::findNextServerKeyword(size_t startPos)
+{
+	size_t pos = startPos;
+
+	while (true) 
+	{
+		// Find the next occurrence of "server"
+		pos = _content.find("server", pos);
+		if (pos == std::string::npos)
+			return std::string::npos;
+
+		// Verify it's a standalone keyword (not part of another word)
+		bool isValidKeyword = true;
+
+		// Check character before (if not at beginning)
+		if (pos > 0 && !isspace(_content[pos - 1]) && _content[pos - 1] != ';' && 
+				_content[pos - 1] != '{' && _content[pos - 1] != '}') {
+			isValidKeyword = false;
+		}
+
+		// Check character after (if not at end)
+		if (pos + 6 < _content.length() && !isspace(_content[pos + 6]) && _content[pos + 6] != '{') 
+			isValidKeyword = false;
+
+		if (isValidKeyword)
+			return pos;
+
+		// Move past this occurrence
+		pos += 6;
+	}
+}
+
+/**
+ * @brief Find the opening brace after a server keyword
+ * @param _content The configuration _content
+ * @param startPos Position of the server keyword
+ * @return Position of opening brace or npos if not found
+ */
+size_t ConfigParser::findOpeningBrace(size_t startPos)
+{
+	size_t pos = startPos + 6; // Move past "server"
+
+	// Skip whitespace
+	while (pos < _content.length() && isspace(_content[pos]))
+		++pos;
+
+	// Check if we found an opening brace
+	return (pos < _content.length() && _content[pos] == '{') ? pos : std::string::npos;
+}
+
+/**
+ * @brief Extract a block of configuration with proper brace matching
+ * @param _content The configuration _content
+ * @param openBracePos Position of opening brace
+ * @return Pair of block _content and position after block
+ */
+std::pair<std::string, size_t> ConfigParser::extractBlock(size_t openBracePos)
+{
+	int braceCount = 1;
+	size_t closeBracePos = openBracePos + 1;
+
+	while (braceCount > 0 && closeBracePos < _content.length()) 
+	{
+		if (_content[closeBracePos] == '{')
+			++braceCount;
+		else if (_content[closeBracePos] == '}')
+			--braceCount;
+
+		++closeBracePos;
+	}
+
+	if (braceCount != 0) 
+		throw ErrorConfig("Unmatched '{' in block starting at position ");
+
+	// Extract the block _content (excluding the outer braces)
+	std::string block = _content.substr(openBracePos + 1, closeBracePos - openBracePos - 2);
+
+	return std::make_pair(block, closeBracePos);
+}
+
+/**
+ * @brief Parse a server block into a ServerConfig object
+ * @param block Content of server block
+ */
+void ConfigParser::parseServerBlock(const std::string& block) 
+{
+	ServerConfig server;
+	size_t pos = 0;
+
+	while (pos < block.size()) 
+	{
+		// Skip whitespace
+		while (pos < block.size() && std::isspace(block[pos]))
+			++pos;
+		if (pos >= block.size())
+			break;
+
+		// Find the end of directive (semicolon or opening brace)
+		size_t endDirective = block.find_first_of(";\n{", pos);
 		if (endDirective == std::string::npos)
 			break;
 
-		// Extract the directive line
-		std::string directiveLine = trim(remainingBlock.substr(pos, endDirective - pos));
-		if (directiveLine.empty())
+		// Extract directive line
+		std::string directiveLine = trim(block.substr(pos, endDirective - pos));
+		if (directiveLine.empty()) 
 		{
 			pos = endDirective + 1;
 			continue;
 		}
 
-		// Parse key and value from the directive
+		// Split into key and value
 		size_t spacePos = directiveLine.find_first_of(" \t");
-		if (spacePos == std::string::npos)
+		if (spacePos == std::string::npos) 
 		{
 			pos = endDirective + 1;
 			continue;
@@ -151,42 +322,26 @@ void ConfigParser::parseServerBlock(const std::string& block)
 		std::string key = trim(directiveLine.substr(0, spacePos));
 		std::string value = trim(directiveLine.substr(spacePos + 1));
 
-		// Check if this is a location directive
-		if (key == "location")
+		// Handle location blocks specially
+		if (key == "location") 
 		{
-			// Find the opening brace for the location block
-			size_t openBrace = remainingBlock.find('{', endDirective);
+			// Find location block
+			size_t openBrace = block.find('{', endDirective);
 			if (openBrace == std::string::npos)
-				throw std::runtime_error("Invalid location block: missing '{'");
+				throw ErrorConfig("Missing '{' in location block");
 
-			// Find the matching closing brace
-			int braceCount = 1;
-			size_t closeBrace = openBrace + 1;
-			while (braceCount > 0 && closeBrace < remainingBlock.size())
-			{
-				if (remainingBlock[closeBrace] == '{')
-					braceCount++;
-				else if (remainingBlock[closeBrace] == '}')
-					braceCount--;
-				closeBrace++;
-			}
+			// Extract location block
+			std::pair<std::string, size_t> locationInfo = extractBlock(openBrace);
+			std::string locationBlock = locationInfo.first;
 
-			if (braceCount != 0)
-				throw std::runtime_error("Invalid location block: missing '}'");
-
-			// Extract and parse the location block
-			std::string locationBlock = remainingBlock.substr(openBrace + 1, closeBrace - openBrace - 2);
+			// Parse location and add to server
 			LocationConfig location = parseLocationBlock(locationBlock);
-
-			// Add the location to the server config
 			server.addLocation(value, location);
-
-			// Move past this location block
-			pos = closeBrace;
-		}
-		else
+			pos = locationInfo.second;
+		} 
+		else 
 		{
-			// Handle normal directives
+			// Handle other server directives
 			if (key == "host")
 				server.setHost(value);
 			else if (key == "listen")
@@ -194,26 +349,29 @@ void ConfigParser::parseServerBlock(const std::string& block)
 			else if (key == "server_name")
 				server.setServerName(value);
 			else if (key == "client_max_body_size")
-				server.setClientMaxBodySize(atoi(value.c_str()));
+				server.setClientMaxBodySize(std::atoi(value.c_str()));
 			else if (key == "error_page")
 			{
+				// Parse error page directive (format: error_page CODE PATH)
 				std::vector<std::string> tokens = split(value, ' ');
 				if (tokens.size() == 2)
-					server.setErrorPage(atoi(tokens[0].c_str()), tokens[1]);
+					server.setErrorPage(std::atoi(tokens[0].c_str()), tokens[1]);
 			}
-
-			// Move past this directive
+			// Move past the directive
 			pos = endDirective + 1;
 		}
 	}
 
+	// Add the parsed server to the servers vector
 	_servers.push_back(server);
 }
 
-
-
-// Improved parseLocationBlock to ensure all config values are correctly parsed
-LocationConfig ConfigParser::parseLocationBlock(const std::string& block)
+/**
+ * @brief Parse a location block into a LocationConfig object
+ * @param block Content of location block
+ * @return Parsed LocationConfig object
+ */
+LocationConfig ConfigParser::parseLocationBlock(const std::string& block) 
 {
 	LocationConfig location;
 	std::istringstream iss(block);
@@ -222,88 +380,88 @@ LocationConfig ConfigParser::parseLocationBlock(const std::string& block)
 	while (std::getline(iss, line))
 	{
 		line = trim(line);
-
-		// Skip empty lines, comments, and closing braces
-		if (line.empty() || line[0] == '#' || line == "}")
+		if (line.empty() || line == "}")
 			continue;
 
-		// Parse key-value pair
 		std::pair<std::string, std::string> keyValue = parseLine(line);
 		const std::string& key = keyValue.first;
 		const std::string& value = keyValue.second;
 
-		// Set location properties
+		// Set location properties based on directive
 		if (key == "root")
 			location.setRoot(value);
 		else if (key == "index")
 			location.setIndex(value);
 		else if (key == "autoindex")
-			location.setAutoindex(value == "on");
+			location.setAutoindex(value);
 		else if (key == "allow_methods")
-		{
-			std::vector<std::string> methods = split(value, ' ');
-			location.setAllowedMethods(methods);
-		}
+			location.setAllowedMethods(value);
 		else if (key == "cgi_extension")
 			location.setCgiExtension(value);
 		else if (key == "cgi_path")
 			location.setCgiPath(value);
 	}
-
 	return location;
 }
 
-
+/**
+ * @brief Parse a single configuration line into key-value pair
+ * @param line Line to parse
+ * @return Pair of key and value
+ */
 std::pair<std::string, std::string> ConfigParser::parseLine(const std::string& line) 
 {
-	// Remove comments from the line
-	std::string cleanedLine = line;
-	size_t commentPos = cleanedLine.find('#');
-	if (commentPos != std::string::npos) 
-		cleanedLine = cleanedLine.substr(0, commentPos);
-
-	// Trim the cleaned line
-	cleanedLine = trim(cleanedLine);
-
-	// Skip lines that contain only a closing brace '}'
-	if (cleanedLine == "}") 
+	if (line == "}")
 		return std::make_pair("}", "");
 
-	// Split the line into key and value
-	size_t pos = cleanedLine.find_first_of(" \t");
-	if (pos == std::string::npos) 
-		throw std::runtime_error("Invalid configuration line: " + line);
+	size_t pos = line.find_first_of(" \t");
+	if (pos == std::string::npos)
+		throw ErrorConfig("Invalid config line: " + line);
 
-	std::string key = trim(cleanedLine.substr(0, pos));
-	std::string value = trim(cleanedLine.substr(pos + 1));
+	std::string key = trim(line.substr(0, pos));
+	std::string value = trim(line.substr(pos + 1));
 
-	// Remove trailing semicolon or opening brace from value
-	if (!value.empty()) 
-		if (value[value.size() - 1] == ';' || value[value.size() - 1] == '{') 
-			value = value.substr(0, value.size() - 1);
+	// Remove trailing semicolon or brace if present
+	if (!value.empty() && (value[value.size() - 1] == ';' || value[value.size() - 1] == '{'))
+		value = value.substr(0, value.size() - 1);
 
-	return std::make_pair(key, value);
+	return std::make_pair(key, trim(value));
 }
 
-std::string ConfigParser::trim(const std::string& str) 
-{
-	size_t first = str.find_first_not_of(" \t");
-	size_t last = str.find_last_not_of(" \t");
-	if (first == std::string::npos || last == std::string::npos) 
-		return "";
-	return str.substr(first, last - first + 1);
-}
-
+/**
+ * @brief Split a string by a delimiter
+ * @param str String to split
+ * @param delimiter Character to split by
+ * @return Vector of split strings
+ */
 std::vector<std::string> ConfigParser::split(const std::string& str, char delimiter) 
 {
 	std::vector<std::string> tokens;
 	std::string token;
 	std::istringstream iss(str);
+
 	while (std::getline(iss, token, delimiter)) 
 	{
 		token = trim(token);
-		if (!token.empty()) 
+		if (!token.empty())
 			tokens.push_back(token);
 	}
+
 	return tokens;
 }
+
+/**
+ * @brief Trim whitespace from beginning and end of string
+ * @param str String to trim
+ * @return Trimmed string
+ */
+std::string ConfigParser::trim(const std::string& str) 
+{
+	size_t first = str.find_first_not_of(" \t");
+	if (first == std::string::npos)
+		return "";
+
+	size_t last = str.find_last_not_of(" \t");
+	return str.substr(first, last - first + 1);
+}
+

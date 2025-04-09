@@ -6,34 +6,36 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:16:39 by mregrag           #+#    #+#             */
-/*   Updated: 2025/03/19 01:45:49 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/09 21:56:01 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef CONFIGPARSER_HPP
-#define CONFIGPARSER_HPP
+#ifndef CONFIG_PARSER_HPP
+#define CONFIG_PARSER_HPP
 
-#include "ServerConfig.hpp"
+#include "webserver.hpp"
 #include <string>
-#include <vector>
-#include <fstream>
-#include <sstream>
-#include <algorithm>
-#include <cctype>
-#include <iostream>
 
-class ConfigParser 
+class ConfigParser
 {
 	private:
+		ConfigFile _configFile;
+		std::string _content;
 		std::vector<ServerConfig> _servers;
-		std::string _configFilePath;
 
-		void parseFile();
+		void validateConfigFile();
+		void readAndPrepareContent();
+		void parseServerBlocks();
+		size_t findNextServerKeyword(size_t startPos);
+		size_t findOpeningBrace(size_t startPos);
+		std::pair<std::string, size_t> extractBlock(size_t openBracePos);
 		void parseServerBlock(const std::string& block);
 		LocationConfig parseLocationBlock(const std::string& block);
 		std::pair<std::string, std::string> parseLine(const std::string& line);
-		std::string trim(const std::string& str);
+
+		void cleanContent();
 		std::vector<std::string> split(const std::string& str, char delimiter);
+		std::string trim(const std::string& str);
 
 	public:
 		ConfigParser();
@@ -42,9 +44,26 @@ class ConfigParser
 		ConfigParser& operator=(const ConfigParser& other);
 		~ConfigParser();
 
-		bool parse();
+		void parseFile();
+
 		const std::vector<ServerConfig>& getServers();
-		void print() const;
+
+		class ErrorConfig : public std::exception
+		{
+			private:
+				std::string _message;
+			public:
+				ErrorConfig(std::string message) throw()
+				{
+					_message = "CONFIG ERROR: " + message;
+				}
+				virtual const char* what() const throw()
+				{
+					return (_message.c_str());
+				}
+				virtual ~ErrorConfig() throw() {}
+		};
 };
 
-#endif
+#endif 
+
