@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/24 21:18:46 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/10 18:21:56 by zel-oirg         ###   ########.fr       */
+/*   Updated: 2025/04/11 00:15:24 by zel-oirg         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,46 +14,27 @@
 #include "../include/webserver.hpp"
 
 
-// int main(int argc, char **argv)
-// {
-// 	if (argc != 1 && argc != 2)
-// 	{
-// 		std::cout << "Usage: " << argv[0] << " [config_file]\n";
-// 		return (1);
-// 	}
-// 	try
-// 	{
-// 		std::string configFile = (argc == 1) ? "config/default.conf" : argv[1];
-
-// 		ConfigParser config(configFile);
-// 		ServerManager server;
-// 		config.parseFile();
-// 		server.setupServers(config.getServers());
-// 		server.run();
-
-// 	}
-// 	catch (const std::exception& e)
-// 	{
-// 		std::cerr << "Error: " << e.what() << "\n";
-// 		return (1);
-// 	}
-// 	return (0);
-// }
-
-
-int main()
+int main(int argc, char **argv)
 {
-	std::string raw_request =
-    "POST /submit-form HTTP/1.1\r\n"
-    "Host: www.example.com\r\n"
-    "User-Agent: curl/7.88.1\r\n"
-    "Accept: */*\r\n"
-    "Content-Type: application/x-www-form-urlencoded\r\n"
-    "Content-Length: 27\r\n"
-    "Connection: keep-alive\r\n"
-    "\r\n"
-    "name=John&age=25&city=Paris";
-	HTTPRequest	req(raw_request);
-	req.parce();
-	
+	if (argc != 1 && argc != 2)
+	{
+		std::cout << "Usage: " << argv[0] << " [config_file]\n";
+		return (1);
+	}
+	try
+	{
+		std::string configFile = (argc == 1) ? "config/default.conf" : argv[1];
+
+		ConfigParser config(configFile);
+		ServerManager server;
+		config.parseFile();
+		server.setupServers(config.getServers());
+		server.run();
+	}
+	catch (const std::exception& e)
+	{
+		std::cerr << "Error: " << e.what() << "\n";
+		return (1);
+	}
+	return (0);
 }
