@@ -16,10 +16,10 @@
 class ServerManager
 {
 	private:
-		EpollManager _epollManager;
-		std::vector<ServerConfig> _servers;
-		std::map<int, ServerConfig*> _server_map;
-		std::map<int, std::string> _client_requests;
+		EpollManager					_epollManager;
+		std::vector<ServerConfig>		_servers;
+		std::map<int, ServerConfig*>	_server_map;
+		std::map<int, std::string>		_client_requests;
 
 	public:
 		ServerManager();

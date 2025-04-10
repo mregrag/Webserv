@@ -15,6 +15,8 @@
 #include <cstring>
 
 #include "EpollManager.hpp"
+#include "HTTPRequest.hpp"
+#include "HTTPResponse.hpp"
 #include "ServerConfig.hpp"
 #include <iostream>
 #include <vector>

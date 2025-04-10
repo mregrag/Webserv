@@ -6,19 +6,15 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:27:45 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/10 00:11:01 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/10 17:23:30 by zel-oirg         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/ServerConfig.hpp"
 #include <cstring>
-ServerConfig::ServerConfig() : _host(""), _port(0), _serverName(""), _clientMaxBodySize(0)
-{
-}
+ServerConfig::ServerConfig() : _host(""), _port(0), _serverName(""), _clientMaxBodySize(0) {}
 
-ServerConfig::~ServerConfig()
-{
-}
+ServerConfig::~ServerConfig() {}
 
 ServerConfig::ServerConfig(const ServerConfig& other)
 {
