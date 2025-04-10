@@ -12,14 +12,16 @@
 #include "ServerConfig.hpp"
 #include "EpollManager.hpp"
 #include "Logger.hpp"
+#include "../include/Client.hpp"
 
 class ServerManager
 {
 	private:
-		EpollManager					_epollManager;
-		std::vector<ServerConfig>		_servers;
-		std::map<int, ServerConfig*>	_server_map;
-		std::map<int, std::string>		_client_requests;
+		EpollManager _epollManager;
+		std::vector<ServerConfig> _servers;
+		std::map<int, ServerConfig*> _server_map;
+		std::map<int, std::string> _client_requests;
+		 std::map<int, Client> _clients;
 
 	public:
 		ServerManager();
@@ -29,8 +31,8 @@ class ServerManager
 		void run();
 		void handleEvent(struct epoll_event& event);
 		void acceptConnection(ServerConfig& server);
-		void handleClientRequest(int client_fd);
-		void sendResponse(int client_fd, const std::string& response);
+		void readRequest(int client_fd);
+		void sendResponse(int client_fd);
 		void closeConnection(int client_fd);
 
 		class ErrorServer : public std::exception

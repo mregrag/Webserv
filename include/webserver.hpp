@@ -15,8 +15,6 @@
 #include <cstring>
 
 #include "EpollManager.hpp"
-#include "HTTPRequest.hpp"
-#include "HTTPResponse.hpp"
 #include "ServerConfig.hpp"
 #include <iostream>
 #include <vector>
@@ -31,6 +29,8 @@
 #include "Logger.hpp"
 #include "ServerManager.hpp"
 #include "ConfigFile.hpp"
+#include "HTTPRequest.hpp"
+#include "HTTPResponse.hpp"
 
 
 #define QUEUE_CONNEXION 5
