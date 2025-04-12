@@ -6,11 +6,11 @@
 class Client
 {
 	private:
-		int								_fd;
-		std::string						_writeBuffer;
-		std::string						_readBuffer;
-		HTTPRequest						_request;
-		bool							_requestComplete;
+		int			_fd;
+		std::string	_writeBuffer;
+		std::string	_readBuffer;
+		HTTPRequest	_request;
+		bool		_requestComplete;
 	public:
 	Client(int fd);
 	~Client();
