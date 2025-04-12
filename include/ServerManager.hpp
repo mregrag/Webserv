@@ -1,17 +1,9 @@
 #ifndef SERVER_MANAGER_HPP
 #define SERVER_MANAGER_HPP
 
-#include <iostream>
-#include <vector>
-#include <map>
-#include <string>
-#include <stdexcept>
-#include <sys/epoll.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include "ServerConfig.hpp"
-#include "EpollManager.hpp"
-#include "Logger.hpp"
+#include "webserver.hpp"
+
+class Client ;
 
 class ServerManager
 {
@@ -19,8 +11,7 @@ class ServerManager
 		EpollManager					_epollManager;
 		std::vector<ServerConfig>		_servers;
 		std::map<int, ServerConfig*>	_server_map;
-		std::map<int, std::string>		_client_requests;
-
+		std::map<int, Client*>			_clients;
 	public:
 		ServerManager();
 		~ServerManager();
@@ -30,7 +21,7 @@ class ServerManager
 		void handleEvent(struct epoll_event& event);
 		void acceptConnection(ServerConfig& server);
 		void handleClientRequest(int client_fd);
-		void sendResponse(int client_fd, const std::string& response);
+		void sendResponse(int client_fd);
 		void closeConnection(int client_fd);
 
 		class ErrorServer : public std::exception

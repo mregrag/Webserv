@@ -15,6 +15,7 @@ class HTTPRequest
         bool								_complete;
     public:
         HTTPRequest(const std::string& raw_data);
+        HTTPRequest();
         ~HTTPRequest();
 
         const std::string&	getMethod() const;

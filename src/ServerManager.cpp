@@ -7,11 +7,9 @@ ServerManager::ServerManager()
 
 ServerManager::~ServerManager()
 {
-	for (std::map<int, std::string>::iterator it = _client_requests.begin(); it != _client_requests.end(); ++it) 
-	{
-		close(it->first);
-		LOG_DEBUG("Closed client connection (fd: " + toString(it->first) + ")");
-	}
+	for (std::map<int, Client*>::iterator it = _clients.begin()
+		; it != _clients.end(); ++it) 
+		closeConnection(it->first);
 
 	for (size_t i = 0; i < _servers.size(); ++i)
 	{
@@ -35,14 +33,15 @@ void ServerManager::setupServers(const std::vector<ServerConfig>& servers)
 
 			if (fcntl(listen_fd, F_SETFL, O_NONBLOCK) == -1)
 			{
-				LOG_ERROR("Failed to set non-blocking mode for fd: " + toString(listen_fd));
+				LOG_ERROR("Failed to set non-blocking mode for fd: "
+						+ toString(listen_fd));
 				throw std::runtime_error("fcntl failed");
 			}
-
 			_epollManager.addFd(listen_fd, EPOLLIN | EPOLLET);
 			_server_map[listen_fd] = &_servers[i];
-
-			LOG_INFO("Server created: " + _servers[i].getServerName() + " on " + _servers[i].getHost() + ":" + toString(_servers[i].getPort()) + " (fd: " + toString(listen_fd) + ")");
+			LOG_INFO("Server created: " + _servers[i].getServerName() + " on " 
+				+ _servers[i].getHost() + ":" + toString(_servers[i].getPort()) 
+				+ " (fd: " + toString(listen_fd) + ")");
 		}
 		catch (const std::exception& e)
 		{
@@ -56,13 +55,24 @@ void ServerManager::handleEvent(struct epoll_event& event)
 	int fd = event.data.fd;
 
 	if (_server_map.find(fd) != _server_map.end())
+	{
+		
 		acceptConnection(*_server_map[fd]);
+	}
 	else if (event.events & EPOLLIN)
+	{
 		handleClientRequest(fd);
+	}
 	else if (event.events & EPOLLOUT)
-		sendResponse(fd, "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nHello, World!");
+	{
+		
+		sendResponse(fd);
+	}
 	else 
+	{
+
 		closeConnection(fd);
+	}
 }
 
 void ServerManager::run()
@@ -85,7 +95,7 @@ void ServerManager::run()
 			catch (const std::exception& e) 
 			{
 				LOG_ERROR("Error handling event: " + std::string(e.what()));
-				if (_client_requests.find(events[i].data.fd) != _client_requests.end()) 
+				if (_clients.find(events[i].data.fd) != _clients.end()) 
 					closeConnection(events[i].data.fd);
 			}
 		}
@@ -106,12 +116,13 @@ void ServerManager::acceptConnection(ServerConfig& server)
 		throw ErrorServer("Failed to set client socket non-blocking");
 
 	_epollManager.addFd(client_fd, EPOLLIN | EPOLLET | EPOLLRDHUP);
-	_client_requests[client_fd] = "";
+	_clients[client_fd] = new Client(client_fd);
 
 	char ip_str[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, INET_ADDRSTRLEN);
 
-	LOG_INFO("Accepted new connection from " + std::string(ip_str) + " on server " + server.getServerName() + " (fd: " + toString(client_fd) + ")");
+	LOG_INFO("Accepted new connection from " + std::string(ip_str) + " on server " 
+		+ server.getServerName() + " (fd: " + toString(client_fd) + ")");
 }
 
 void ServerManager::handleClientRequest(int client_fd)
@@ -119,53 +130,40 @@ void ServerManager::handleClientRequest(int client_fd)
 	char buffer[4096];
 	ssize_t bytes_read;
 
-	while ((bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0)) > 0) 
-	{
-		buffer[bytes_read] = '\0';
-		_client_requests[client_fd] += buffer;
-
-		size_t header_end = _client_requests[client_fd].find("\r\n\r\n");
-		if (header_end != std::string::npos) 
-		{
-			LOG_DEBUG("Received complete headers from client (fd: " + toString(client_fd) + ")");
-
-			size_t content_length = 0;
-			size_t cl_pos = _client_requests[client_fd].find("Content-Length: ");
-			if (cl_pos != std::string::npos) 
-				content_length = atoi(_client_requests[client_fd].c_str() + cl_pos + 16);
-
-			if (_client_requests[client_fd].length() >= header_end + 4 + content_length) 
-			{
-				std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nHello, World!";
-				_client_requests[client_fd] = response;
-				_epollManager.modifyFd(client_fd, EPOLLOUT | EPOLLET);
-				break;
-			}
-		}
-	}
-
-	if (bytes_read == 0 || (bytes_read == -1 && errno != EAGAIN && errno != EWOULDBLOCK)) 
+	Client	*client = _clients[client_fd];
+	while ((bytes_read = recv(client_fd, buffer, sizeof (buffer), 0)) > 0)
+		client->appendToBuffer(buffer, bytes_read);
+	if (bytes_read == 0 || (bytes_read == -1 && errno != EAGAIN && errno != EWOULDBLOCK))
 	{
 		LOG_INFO("Client disconnected (fd: " + toString(client_fd) + ")");
 		closeConnection(client_fd);
+		return ;
+	}
+	LOG_INFO("Client receive data to (fd: " + toString(client_fd) + ")");
+	client->parseRequest();
+	if (client->isRequestComplete())
+	{
+		client->prepareResponse();
+		LOG_INFO("Client prepare responce (fd: " + toString(client_fd) + ")");
+		_epollManager.modifyFd(client_fd, EPOLLOUT | EPOLLET);
 	}
 }
 
-void ServerManager::sendResponse(int client_fd, const std::string& response) 
+void ServerManager::sendResponse(int client_fd) 
 {
-	ssize_t bytes_sent = send(client_fd, response.c_str(), response.length(), 0);
+	Client *client = _clients[client_fd];
+	if (!client)
+		return ;
 
-	if (bytes_sent == -1) 
+	std::string	resp = client->getWriteBuffer();
+	ssize_t byteSend = send(client_fd, resp.c_str(), resp.size(), 0);
+	if (byteSend == -1)
 	{
-		if (errno != EAGAIN && errno != EWOULDBLOCK) 
-		{
-			LOG_ERROR("Send failed to client (fd: " + toString(client_fd) + ")");
-			closeConnection(client_fd);
-		}
-		return;
+		LOG_ERROR("Send failed (fd: " + toString(client_fd) + ")");
+		closeConnection(client_fd);
+		return ;
 	}
-
-	LOG_DEBUG("Sent response to client (fd: " + toString(client_fd) + ")");
+	LOG_DEBUG("Sent response (fd: " + toString(client_fd) + ")");
 	closeConnection(client_fd);
 }
 
@@ -173,7 +171,8 @@ void ServerManager::closeConnection(int client_fd)
 {
 	_epollManager.removeFd(client_fd);
 	close(client_fd);
-	_client_requests.erase(client_fd);
+	delete _clients[client_fd];
+	_clients.erase(client_fd);
 	LOG_DEBUG("Closed connection (fd: " + toString(client_fd) + ")");
 }
 

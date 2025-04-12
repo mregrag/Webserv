@@ -1,5 +1,7 @@
 #include "../include/webserver.hpp"
 
+HTTPRequest::HTTPRequest() : _complete(false) {}
+
 HTTPRequest::HTTPRequest(const std::string& raw_data)
 {
 	_rawData = raw_data;
