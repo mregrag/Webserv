@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/09 21:51:45 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/09 21:52:23 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/10 14:34:11 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -59,7 +59,6 @@ void Logger::fatal(const std::string& message)
 
 void Logger::log(LogLevel level, const std::string& message)
 {
-    /*if (level < _currentLevel) return;*/
 
     std::cerr << (_colorsEnabled ? COLOR_TIME : "") << "[" << getTimestamp() << "] " << (_colorsEnabled ? COLOR_RESET : "");
     
@@ -106,4 +105,3 @@ std::string Logger::getLevelString(LogLevel level)
         default: return "UNKNOWN";
     }
 }
-

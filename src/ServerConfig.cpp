@@ -6,15 +6,20 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:27:45 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/10 17:23:30 by zel-oirg         ###   ########.fr       */
+/*   Updated: 2025/04/14 15:19:13 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/ServerConfig.hpp"
-#include <cstring>
-ServerConfig::ServerConfig() : _host(""), _port(0), _serverName(""), _clientMaxBodySize(0) {}
 
-ServerConfig::~ServerConfig() {}
+ServerConfig::ServerConfig() : _host(""), _port(0), _serverName(""), _clientMaxBodySize(0)
+{
+}
+
+
+ServerConfig::~ServerConfig()
+{
+}
 
 ServerConfig::ServerConfig(const ServerConfig& other)
 {
@@ -31,7 +36,7 @@ ServerConfig& ServerConfig::operator=(const ServerConfig& other)
 		_clientMaxBodySize = other._clientMaxBodySize;
 		_errorPages = other._errorPages;
 		_locations = other._locations;
-		_listen_fd = other._listen_fd;
+		_server_fd = other._server_fd;
 		_server_address = other._server_address;
 	}
 	return *this;
@@ -104,7 +109,7 @@ void ServerConfig::setErrorPage(int code, const std::string& path)
 
 void	ServerConfig::setFd(int fd)
 {
-	this->_listen_fd = fd;
+	this->_server_fd = fd;
 }
 
 void ServerConfig::addLocation(const std::string& path, const LocationConfig& location)
@@ -137,7 +142,7 @@ const std::map<int, std::string>& ServerConfig::getErrorPages() const
 
 int   	ServerConfig::getFd() 
 { 
-	return (this->_listen_fd); 
+	return (this->_server_fd); 
 }
 
 const std::map<std::string, LocationConfig>& ServerConfig::getLocations() const
@@ -146,12 +151,12 @@ const std::map<std::string, LocationConfig>& ServerConfig::getLocations() const
 }
 void ServerConfig::setupServer()
 {
-	_listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (_listen_fd == -1)
+	_server_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (_server_fd == -1)
 		throw ErrorServer("Failed to create socket");
 
 	int opt = 1;
-	if (setsockopt(_listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
+	if (setsockopt(_server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
 		throw ErrorServer("Failed to set socket options");
 
 	memset(&_server_address, 0, sizeof(_server_address));
@@ -159,48 +164,31 @@ void ServerConfig::setupServer()
 	_server_address.sin_addr.s_addr = inet_addr(_host.c_str());
 	_server_address.sin_port = htons(_port);
 
-	if (bind(_listen_fd, (struct sockaddr*)&_server_address, sizeof(_server_address)) == -1)
+	if (bind(_server_fd, (struct sockaddr*)&_server_address, sizeof(_server_address)) == -1)
 		throw ErrorServer("Failed to bind socket");
 
-	if (listen(_listen_fd, SOMAXCONN) == -1)
+	if (listen(_server_fd, SOMAXCONN) == -1)
 		throw ErrorServer("Failed to listen on socket");
 }
 
 
-int ServerConfig::acceptConnection()
+void ServerConfig::print() const
 {
-	struct sockaddr_in client_addr;
-	socklen_t client_len = sizeof(client_addr);
+	std::cout << "Server Configuration:\n";
+	std::cout << "----------------------\n";
+	std::cout << "Host: " << _host << "\n";
+	std::cout << "Port: " << _port << "\n";
+	std::cout << "Server Name: " << _serverName << "\n";
+	std::cout << "Client Max Body Size: " << _clientMaxBodySize << " bytes\n";
 
-	int client_fd = accept(_listen_fd, (struct sockaddr*)&client_addr, &client_len);
-	if (client_fd == -1)
-	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			return -1;
-		std::cout << "Failed to accept connection" << std::endl;
-		return -1;
+	std::cout << "Error Pages:\n";
+	for (std::map<int, std::string>::const_iterator it = _errorPages.begin(); it != _errorPages.end(); ++it)
+		std::cout << "  " << it->first << " -> " << it->second << "\n";
+
+	std::cout << "Locations (" << _locations.size() << "):\n";
+	for (std::map<std::string, LocationConfig>::const_iterator it = _locations.begin(); it != _locations.end(); ++it) {
+		std::cout << "  Path: " << it->first << "\n";  // Show the location path
+		it->second.print();  // Call print method on LocationConfig
 	}
-
-	std::cout << "New client connected: " << inet_ntoa(client_addr.sin_addr) 
-		<< ":" << ntohs(client_addr.sin_port) << std::endl;
-	return client_fd;
+	std::cout << std::endl;
 }
-
-/*void ServerConfig::print() const*/
-/*{*/
-/*	std::cout << "Server Config:\n";*/
-/*	std::cout << "  Host: " << _host << "\n";*/
-/*	std::cout << "  Port: " << _port << "\n";*/
-/*	std::cout << "  Server Name: " << _serverName << "\n";*/
-/*	std::cout << "  Client Max Body Size: " << _clientMaxBodySize << "\n";*/
-/*	std::cout << "  Error Pages:\n";*/
-/*	for (std::map<int, std::string>::const_iterator it = _errorPages.begin(); it != _errorPages.end(); ++it) {*/
-/*		std::cout << "    " << it->first << ": " << it->second << "\n";*/
-/*	}*/
-/*	for (std::map<std::string, LocationConfig>::const_iterator it = _locations.begin(); it != _locations.end(); ++it) {*/
-/*		std::cout << "  Location: " << it->first << "\n";*/
-/*		it->second.print();*/
-/*	}*/
-/*}*/
-/**/
-/**/

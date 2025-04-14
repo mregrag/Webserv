@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/24 21:24:19 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/10 01:44:53 by zel-oirg         ###   ########.fr       */
+/*   Updated: 2025/04/14 14:33:57 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,6 +27,7 @@
 #include <sstream>
 #include <netdb.h>     // For getaddrinfo
 #include <arpa/inet.h> // For inet_ntoa
+#include <cstring>
 
 
 
@@ -34,14 +35,14 @@
 class ServerConfig
 {
 	private:
-		std::string								_host;
-		uint16_t								_port;
-		std::string 							_serverName;
-		size_t									_clientMaxBodySize;
-		std::map<int, std::string>				_errorPages;
-		std::map<std::string, LocationConfig>	_locations;
-		struct sockaddr_in						_server_address;
-		int     				_listen_fd;
+		std::string _host;
+		uint16_t _port;
+		std::string _serverName;
+		size_t _clientMaxBodySize;
+		std::map<int, std::string> _errorPages;
+		std::map<std::string, LocationConfig>   _locations;
+		struct sockaddr_in 			_server_address;
+		int     				_server_fd;
 
 		//utils methode
 		bool isValidHost(const std::string& host);
@@ -50,29 +51,26 @@ class ServerConfig
 		ServerConfig();
 		~ServerConfig();
 		ServerConfig(const ServerConfig& other);
-		ServerConfig&	operator=(const ServerConfig& other);
+		ServerConfig& operator=(const ServerConfig& other);
 
-		void	setHost(const std::string& host);
-		void	setPort(const std::string& port);
-		void	setServerName(const std::string& name);
-		void	setClientMaxBodySize(size_t size);
-		void	setErrorPage(int code, const std::string& path);
-		void	addLocation(const std::string& path, const LocationConfig& location);
-		void	setFd(int fd);
+		void setHost(const std::string& host);
+		void setPort(const std::string& port);
+		void setServerName(const std::string& name);
+		void setClientMaxBodySize(size_t size);
+		void setErrorPage(int code, const std::string& path);
+		void addLocation(const std::string& path, const LocationConfig& location);
+		void setFd(int fd);
 
-		int	getPort() const;
-		int getFd();
-		size_t	getClientMaxBodySize() const;
-		const std::string&	getServerName() const;
-		const std::string&	getHost() const;
-		const std::map<int, std::string>&	getErrorPages() const;
-		const std::map<std::string, LocationConfig>&	getLocations() const;
+		int getPort() const;
+		int   	getFd();
+		size_t getClientMaxBodySize() const;
+		const std::string& getServerName() const;
+		const std::string& getHost() const;
+		const std::map<int, std::string>& getErrorPages() const;
+		const std::map<std::string, LocationConfig>& getLocations() const;
 
 		void print() const;
-		  // Socket and server setup
 		void setupServer();
-
-		int acceptConnection();
 
 		class ErrorServer : public std::exception
 		{

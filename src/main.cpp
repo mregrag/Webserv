@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/24 21:18:46 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/11 00:15:24 by zel-oirg         ###   ########.fr       */
+/*   Updated: 2025/04/14 15:23:07 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,8 +28,10 @@ int main(int argc, char **argv)
 		ConfigParser config(configFile);
 		ServerManager server;
 		config.parseFile();
+		config.print();
 		server.setupServers(config.getServers());
 		server.run();
+
 	}
 	catch (const std::exception& e)
 	{
@@ -38,3 +40,4 @@ int main(int argc, char **argv)
 	}
 	return (0);
 }
+

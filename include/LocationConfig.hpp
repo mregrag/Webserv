@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 16:54:43 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/09 22:01:03 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/12 20:18:51 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,9 +15,8 @@
 
 #include <string>
 #include <vector>
-#include <iostream>
 
-class LocationConfig
+class LocationConfig 
 {
 	public:
 		LocationConfig();
@@ -38,6 +37,11 @@ class LocationConfig
 		const std::vector<std::string>& getAllowedMethods() const;
 		const std::string& getCgiExtension() const;
 		const std::string& getCgiPath() const;
+		std::string resolvePath(const std::string& requestPath) const;
+
+		void setPath(const std::string& path);
+		const std::string& getPath() const;
+
 
 		void print() const;
 		std::vector<std::string> split(const std::string& str, char delimiter);
@@ -45,6 +49,7 @@ class LocationConfig
 
 	private:
 		std::string _root;
+		std::string _path;
 		std::string _index;
 		bool _autoindex;
 		std::vector<std::string> _allowedMethods;

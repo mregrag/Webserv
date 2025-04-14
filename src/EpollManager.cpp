@@ -1,8 +1,20 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   EpollManager.cpp                                   :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/04/10 15:05:56 by mregrag           #+#    #+#             */
+/*   Updated: 2025/04/13 14:59:44 by mregrag          ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "../include/webserver.hpp"
 
 EpollManager::EpollManager()
 {
-	_epollFd = epoll_create1(0);
+	_epollFd = epoll_create(1);
 	if (_epollFd == -1)
 		throw std::runtime_error("Failed to create epoll instance");
 }
@@ -18,7 +30,6 @@ void EpollManager::addFd(int fd, uint32_t events)
 	memset(&event, 0, sizeof(event));
 	event.data.fd = fd;
 	event.events = events;
-
 	if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, fd, &event) == -1)
 		throw std::runtime_error("Failed to add FD to epoll");
 }
@@ -29,7 +40,6 @@ void EpollManager::modifyFd(int fd, uint32_t events)
 	memset(&event, 0, sizeof(event));
 	event.data.fd = fd;
 	event.events = events;
-
 	if (epoll_ctl(_epollFd, EPOLL_CTL_MOD, fd, &event) == -1)
 		throw std::runtime_error("Failed to modify FD in epoll");
 }
@@ -44,11 +54,7 @@ int EpollManager::wait(std::vector<struct epoll_event>& events, int timeout)
 {
 	// Ensure that events is large enough to hold the maximum number of events
 	int numEvents = epoll_wait(_epollFd, &events[0], events.size(), timeout);
-
 	if (numEvents == -1)
 		throw std::runtime_error("Epoll wait failed");
-
 	return (numEvents);
 }
-
-

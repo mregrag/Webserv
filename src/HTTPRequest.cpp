@@ -1,6 +1,12 @@
-#include "../include/webserver.hpp"
+#include "../include/HTTPRequest.hpp"
+#include <sstream>
+#include <iostream>
+#include <cctype>
+#include <cstdlib>
 
-HTTPRequest::HTTPRequest() : _complete(false) {}
+HTTPRequest::HTTPRequest() : _complete(false) 
+{
+}
 
 HTTPRequest::HTTPRequest(const std::string& raw_data)
 {
@@ -28,7 +34,7 @@ const std::string&  HTTPRequest::getHeader(const std::string& key) const
 	throw(std::out_of_range("Header " + key + " is out of range"));
 }
 
-int HTTPRequest::getContentLength() const
+size_t HTTPRequest::getContentLength() const
 {
 	try
 	{
@@ -99,8 +105,7 @@ void	HTTPRequest::write()
 	std::cout << "method = " << _method << std::endl;
 	std::cout << "path = " << _path << std::endl;
 	std::cout << "protocol = " << _protocol << std::endl;
-	for (std::map<std::string, std::string>::const_iterator it = _headers.begin()
-			; it != _headers.end(); ++it)
+	for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
 		std::cout << "Key: " << it->first << ", Value: " << it->second << "\n";
 }
 

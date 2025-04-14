@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:26:11 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/09 22:03:20 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/14 16:04:30 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,7 @@
 #include <iostream>
 #include <sstream>
 
-LocationConfig::LocationConfig() : _root(""), _index(""), _autoindex(false), _cgiExtension(""), _cgiPath("")
+LocationConfig::LocationConfig() : _root(""), _path(""), _index(""), _autoindex(false), _cgiExtension(""), _cgiPath("")
 {
 }
 
@@ -32,6 +32,7 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& other)
 	if (this != &other)
 	{
 		_root = other._root;
+		_path = other._path;
 		_index = other._index;
 		_autoindex = other._autoindex;
 		_allowedMethods = other._allowedMethods;
@@ -81,6 +82,18 @@ std::vector<std::string> LocationConfig::split(const std::string& str, char deli
 	return tokens;
 }
 
+std::string LocationConfig::resolvePath(const std::string& requestPath) const 
+{
+	// Remove the location prefix from the request path
+	size_t prefixPos = requestPath.find(_path);
+	if (prefixPos == 0)
+	{
+		std::string relativePath = requestPath.substr(_path.length());
+		return _root + relativePath;
+	}
+	return (_root + requestPath);
+}
+
 void LocationConfig::setAllowedMethods(const std::string& methods)
 {
 	std::vector<std::string> methodsList = split(methods, ' ');
@@ -121,6 +134,15 @@ bool LocationConfig::getAutoindex() const
 	return _autoindex;
 }
 
+void LocationConfig::setPath(const std::string& path)
+{
+	_path = path;
+}
+
+const std::string& LocationConfig::getPath() const 
+{
+	return _path;
+}
 const std::vector<std::string>& LocationConfig::getAllowedMethods() const
 {
 	return _allowedMethods;
@@ -139,12 +161,12 @@ void LocationConfig::print() const
 {
 	std::cout << "  Location Config:\n";
 	std::cout << "    Root: " << _root << "\n";
+	std::cout << "    Path: " << _path << "\n";
 	std::cout << "    Index: " << _index << "\n";
 	std::cout << "    Autoindex: " << (_autoindex ? "on" : "off") << "\n";
 	std::cout << "    Allowed Methods: ";
-	for (size_t i = 0; i < _allowedMethods.size(); ++i) {
+	for (size_t i = 0; i < _allowedMethods.size(); ++i)
 		std::cout << _allowedMethods[i] << " ";
-	}
 	std::cout << "\n";
 	std::cout << "    CGI Extension: " << _cgiExtension << "\n";
 	std::cout << "    CGI Path: " << _cgiPath << "\n";
