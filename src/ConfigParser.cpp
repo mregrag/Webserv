@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:29:36 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/13 00:56:59 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/18 16:17:33 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -278,7 +278,6 @@ void ConfigParser::parseServerBlock(const std::string& block)
 			}
 			if (braceCount != 0)
 				throw std::runtime_error("Unmatched '{' in location block");
-
 			std::string locationBlock = block.substr(openBrace + 1, closeBrace - openBrace - 2);
 			LocationConfig location = parseLocationBlock(value, locationBlock);
 			server.addLocation(value, location);

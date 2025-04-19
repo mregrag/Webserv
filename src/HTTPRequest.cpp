@@ -1,20 +1,18 @@
 #include "../include/HTTPRequest.hpp"
+#include <algorithm>
+#include "../include/Logger.hpp"
 #include <sstream>
 #include <iostream>
 #include <cctype>
 #include <cstdlib>
 
-HTTPRequest::HTTPRequest() : _complete(false) 
+HTTPRequest::HTTPRequest(Client *client) : _client(client), _state(HTTPRequest::INIT), _parsePosition(0), _contentLength(0)
 {
 }
 
-HTTPRequest::HTTPRequest(const std::string& raw_data)
+HTTPRequest::~HTTPRequest() 
 {
-	_rawData = raw_data;
-	parse();
 }
-
-HTTPRequest::~HTTPRequest() {}
 
 const std::string& HTTPRequest::getMethod() const
 {
@@ -26,7 +24,7 @@ const std::string&  HTTPRequest::getPath() const
 	return _path;
 }
 
-const std::string&  HTTPRequest::getHeader(const std::string& key) const
+const std::string&  HTTPRequest::getHeaderValue(const std::string& key) const
 {
 	std::map<std::string, std::string>::const_iterator  it = _headers.find(key);
 	if (it != _headers.end())
@@ -34,82 +32,465 @@ const std::string&  HTTPRequest::getHeader(const std::string& key) const
 	throw(std::out_of_range("Header " + key + " is out of range"));
 }
 
-size_t HTTPRequest::getContentLength() const
+void HTTPRequest::setState(e_parse_state state)
 {
-	try
-	{
-		return atoi(getHeader("Content-Length").c_str());
-	}
-	catch(...)
-	{
-		return 0;
-	}
+	if (this->_state == FINISH)
+		return;
+	if (this->_state == state)
+		return;
+	this->_state = state;
+}
+int	HTTPRequest::getState(void)
+{
+	return (this->_state);
 }
 
-void	HTTPRequest::parse()
+void HTTPRequest:: parse(const std::string& rawdata)
 {
-	std::string::size_type  end_header = _rawData.find("\r\n\r\n");
-	if (end_header == std::string::npos)
+	if (this->_state == HTTPRequest::FINISH)
+		return;
+	if (this->_state == HTTPRequest::INIT)
+		LOG_DEBUG("psrsing request " + rawdata.substr(0, rawdata.find("\n")));
+	this->_request += rawdata;
+	if (_request.empty())
 	{
-		_complete = false;
+		LOG_DEBUG("Empty request");
 		return ;
 	}
-	std::string headers_data = _rawData.substr(0, end_header);
-	_body = _rawData.substr(end_header + 4);
-	std::istringstream  stream(headers_data);
-	std::string request_line;
-	getline(stream, request_line);
-	std::istringstream  request_line_stream(request_line);
-	request_line_stream >> _method >> _path >> _protocol;
-	if (!check_request())
+
+
+	parseRequestLine();
+	parseRequestHeader();
+	parseRequestBody();
+	std::cout << "------------------------------" << std::endl;
+	std::cout << "method  : " << _method << std::endl;
+	std::cout << "_uri  : " << _uri << std::endl;
+	std::cout << "_path  : " << _path << std::endl;
+	std::cout << "_query  : " << _query << std::endl;
+	std::cout << "_protocol  : " << _protocol << std::endl;
+	std::cout << "==== Headers ====" << std::endl;
+	for (std::map<std::string, std::string>::iterator it = _headers.begin(); it != _headers.end(); ++it)
+		std::cout << it->first << ": " << it->second << std::endl;
+	std::cout << "----------------_body----------------" << std::endl;
+	std::cout << _body << std::endl;
+	std::cout << "----------------" << std::endl;
+}
+void	HTTPRequest::parseRequestLine(void)
+{
+	if (this->_state > LINE_END)
+		return (LOG_DEBUG("Request line already parsed"));
+	if (this->_state == HTTPRequest::INIT)
+		this->setState(LINE_METHOD);
+
+	if (this->_state == LINE_METHOD)
+		this->parseMethod();
+	if (this->_state == LINE_PATH)
+		this->parseUri();
+	if (this->_state == LINE_VERSION)
+		this->parseVersion();
+	if(this->_state == LINE_END)
+		this->checkLineEnd();
+}
+
+void HTTPRequest::parseMethod(void)
+{
+	size_t i = 0;
+	size_t raw_size = _request.size();
+
+	while (i < raw_size && _request[i] != ' ')
 	{
-		_complete = false;
-		return ;
+		if (!std::isalpha(_request[i]))
+			return(setStatusCode(400));
+		_method += _request[i];
+		++i;
 	}
-	std::string line;
-	while (getline(stream, line))
+	if (i == raw_size)
 	{
-		if (line.size() >= 2 && line[line.size() - 1] == '\r')
-		line.erase(line.size() - 1);
-		std::string::size_type  colon = line.find(":");
-		if (colon != std::string::npos)
+		_request.erase(0, i);
+		return;
+	}
+
+	_request.erase(0, i + 1);
+	if (_method.empty())
+		return(setStatusCode(400));
+
+	if (_method != "GET" && _method != "POST" && _method != "DELETE")
+		return(setStatusCode(400));
+
+	LOG_DEBUG("Method: " + _method);
+
+	setState(LINE_PATH);
+}
+
+int HTTPRequest::urlDecode(std::string& str)
+{
+	std::string result;
+	size_t i = 0;
+
+	while (i < str.length())
+	{
+		if (str[i] == '%')
 		{
-			std::string key = line.substr(0, colon);
-			std::string value = line.substr(colon + 1);
-			key.erase(key.find_last_not_of(" \t") + 1);
-			value.erase(0, value.find_first_not_of(" \t"));
-			_headers[key] = value;
+			if (i + 2 >= str.length() || !isxdigit(str[i + 1]) || !isxdigit(str[i + 2]))
+				return -1;
+
+			std::string hex = str.substr(i + 1, 2);
+			char decodedChar = static_cast<char>(std::strtol(hex.c_str(), NULL, 16));
+			result += decodedChar;
+			i += 3;
+		}
+		else if (str[i] == '+')
+		{
+			result += ' ';
+			i++;
 		}
 		else
-		    throw(std::runtime_error("header with no colon!"));
+		{
+			result += str[i];
+			i++;
+		}
 	}
-	if (_body.size() < getContentLength())
+
+	str = result;
+	return 0;
+}
+
+
+void HTTPRequest::parseUri(void)
+{
+	size_t i = 0;
+	size_t raw_size = _request.size();
+
+	while (i < raw_size && (_request[i] == ' ' || _request[i] == '\t'))
+		++i;
+
+	// Extract URI until the next space
+	while (i < raw_size && _request[i] != ' ')
 	{
-		_complete = false;
-		return ;
+		if (!std::isprint(_request[i]))
+			return(setStatusCode(400));
+		_uri += _request[i];
+		++i;
 	}
-	_complete = true;
+
+	// Erase parsed part + space (if any)
+	if (i < raw_size && _request[i] == ' ')
+		++i;
+	_request.erase(0, i);
+
+	if (_uri.empty())
+		return(setStatusCode(400));
+
+	if (urlDecode(_uri) == -1)
+		return(setStatusCode(400));
+
+	size_t pos = _uri.find('?');
+	if (pos != std::string::npos)
+	{
+		_path = _uri.substr(0, pos);
+		_query = _uri.substr(pos + 1);
+	}
+	else
+		_path = _uri;
+	LOG_DEBUG("URI: " + _uri);
+	setState(LINE_VERSION);
 }
 
-bool	HTTPRequest::check_request()
+
+void HTTPRequest::parseVersion(void)
 {
-	if (_method != "POST" && _method != "GET" && _method != "DELETE")
-		return false;
+	size_t i = 0;
+	size_t raw_size = _request.size();
+
+	// Skip initial whitespace
+	while (i < raw_size && (_request[i] == ' ' || _request[i] == '\t'))
+		++i;
+
+	// Parse version token (e.g., "HTTP/1.1")
+	while (i < raw_size)
+	{
+		char c = _request[i];
+
+		if (c != 'H' && c != 'T' && c != 'P' && c != '/' && c != '.' && !std::isdigit(c))
+			break;
+		_protocol += c;
+		++i;
+	}
+	_request.erase(0, i);
+
+	if (_protocol.empty())
+		return(setStatusCode(400));
+
 	if (_protocol != "HTTP/1.1")
-		return false;
-	return true;
+		return(setStatusCode(505));
+
+	setState(LINE_END);
 }
 
-void	HTTPRequest::write()
+void HTTPRequest::checkLineEnd(void)
 {
-	std::cout << "method = " << _method << std::endl;
-	std::cout << "path = " << _path << std::endl;
-	std::cout << "protocol = " << _protocol << std::endl;
-	for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
-		std::cout << "Key: " << it->first << ", Value: " << it->second << "\n";
+	if (_state != LINE_END)
+		return;
+
+	// Trim leading spaces and tabs
+	_request.erase(0, _request.find_first_not_of(" \t"));
+
+	if (_request.empty())
+		return; 
+
+	if (_request[0] == '\n')
+	{
+		_request.erase(0, 1);
+		return(setState(HEADERS_INIT));
+	}
+	if (_request[0] == '\r')
+	{
+		if (_request.size() < 2)
+			return; // Wait for \n
+
+		if (_request[1] == '\n')
+		{
+			_request.erase(0, 2);
+			return(setState(HEADERS_INIT));
+		}
+		return(setStatusCode(400));
+	}
+	setStatusCode(400);
 }
 
-bool	HTTPRequest::isComplete() const
+
+
+
+void	HTTPRequest::parseRequestHeader(void)
 {
-	return _complete;
+	if (this->_state < HEADERS_INIT)
+		return (LOG_DEBUG("Request line not parsed yet"));
+	if (this->_state > HEADERS_END)
+		return (LOG_DEBUG("Headers already parsed"));
+
+	if (this->_state == HEADERS_INIT)
+		this->setState(HEADERS_KEY);
+
+	if (this->_state == HEADERS_KEY)
+		this->parseHeaderKey();
+	if (this->_state == HEADERS_VALUE)
+		this->parseHeaderValue();
+	if (_state == HEADERS_END)
+		return checkHeaderEnd();
+}
+
+void HTTPRequest::parseHeaderKey(void)
+{
+	// Detect end of headers (empty line or \r\n)
+	if (!this->_request.empty() && (this->_request[0] == '\r' || this->_request[0] == '\n'))
+	{
+		if (this->_request[0] == '\n')
+		{
+			this->_request.erase(0, 1);
+			if (!this->_tmpHeaderKey.empty())
+				return this->setStatusCode(400); // Unexpected header key
+			return this->setState(BODY_INIT); // End of headers, start body
+		}
+
+		// Check for \r\n sequence indicating the end of headers
+		if (this->_request.size() < 2)
+			return;
+
+		if (this->_request[1] == '\n')
+		{
+			this->_request.erase(0, 2);
+			if (!this->_tmpHeaderKey.empty())
+				return this->setStatusCode(400); // Unexpected header key
+			return this->setState(BODY_INIT); // End of headers, start body
+		}
+
+		return this->setStatusCode(400); // Invalid header format
+	}
+
+	// Process the header key
+	size_t i = 0;
+	size_t rawSize = this->_request.size();
+	bool foundColon = false;
+
+	// Parse the header key until we encounter a colon ':'
+	while (i < rawSize)
+	{
+		// Reject spaces and tabs in header keys
+		if (this->_request[i] == ' ' || this->_request[i] == '\t')
+			return this->setStatusCode(400); // Invalid character in header key
+
+		// If a colon is found, we know we've reached the end of the header key
+		if (this->_request[i] == ':')
+		{
+			foundColon = true;
+			break;
+		}
+
+		// Ensure that the characters in the header key are valid (alphanumeric, hyphen, underscore)
+		if (!std::isalnum(this->_request[i]) && this->_request[i] != '-' && this->_request[i] != '_')
+			return this->setStatusCode(400); // Invalid character in header key
+
+		// Add valid characters to the temporary header key
+		this->_tmpHeaderKey += this->_request[i];
+		i++;
+	}
+
+	// Remove the processed part of the request
+	this->_request.erase(0, foundColon ? i + 1 : i);
+
+	if (foundColon)
+	{
+		// If the header key is empty after parsing, it's an error
+		if (this->_tmpHeaderKey.empty())
+			return this->setStatusCode(400);
+
+		this->_tmpHeaderKey.erase(std::remove_if(this->_tmpHeaderKey.begin(), this->_tmpHeaderKey.end(), ::isspace), this->_tmpHeaderKey.end());
+
+		LOG_DEBUG("Header key: %s" + this->_tmpHeaderKey);
+		this->setState(HEADERS_VALUE); 
+	}
+}
+
+void HTTPRequest::parseHeaderValue(void)
+{
+	size_t i = 0;
+	size_t rawSize = this->_request.size();
+	bool foundNonPrintable = false;
+
+	while (i < rawSize)
+	{
+		if (this->_tmpHeaderValue.empty() && (this->_request[i] == ' ' || this->_request[i] == '\t'))
+		{
+			i++;
+			continue;
+		}
+		// If a non-printable character is encountered, break the loop
+		if (!std::isprint(this->_request[i]))
+		{
+			foundNonPrintable = true;
+			break;
+		}
+		this->_tmpHeaderValue += this->_request[i];
+		i++;
+	}
+	this->_request.erase(0, i);
+
+	// If a non-printable character was found, handle the error
+	if (foundNonPrintable)
+	{
+		if (this->_tmpHeaderValue.empty())
+			return this->setStatusCode(400); 
+
+		// Check if the header already exists in the map (duplicate header)
+		if (this->_headers.find(this->_tmpHeaderKey) != this->_headers.end())
+			return this->setStatusCode(400); // Duplicate header found
+
+		LOG_DEBUG("Header value: %s" + this->_tmpHeaderValue);
+		this->_headers[this->_tmpHeaderKey] = this->_tmpHeaderValue;
+		this->_tmpHeaderKey.clear();
+		this->_tmpHeaderValue.clear();
+
+		this->setState(HEADERS_END);
+	}
+}
+
+void HTTPRequest::checkHeaderEnd()
+{
+	// Remove leading whitespace
+	_request.erase(0, _request.find_first_not_of(" \t"));
+
+	if (_request.empty())
+		return;
+	if (_request[0] == '\n')
+	{
+		_request.erase(0, 1);
+		setState(HEADERS_KEY);
+		parseRequestHeader();
+		return;
+	}
+	if (_request[0] == '\r')
+	{
+		if (_request.size() < 2)
+			return; // Wait for \n
+		if (_request[1] == '\n')
+		{
+			_request.erase(0, 2);
+			setState(HEADERS_KEY);
+			parseRequestHeader();
+			return;
+		}
+		return(setStatusCode(400));
+	}
+	setStatusCode(400);
+}
+
+void HTTPRequest::parseRequestBody() 
+{
+	if (_state != BODY_INIT) 
+		return;
+
+	// Check for Transfer-Encoding (e.g., chunked)
+	if (_headers.find("Transfer-Encoding") != _headers.end()) 
+	{
+		std::string transferEncoding = _headers["Transfer-Encoding"];
+		if (transferEncoding.find("chunked") != std::string::npos) 
+		{
+			LOG_DEBUG("Chunked transfer encoding is not supported");
+			return setStatusCode(501); // Not Implemented
+		}
+		else 
+		{
+			LOG_DEBUG("Unsupported Transfer-Encoding: " + transferEncoding);
+			return setStatusCode(400);
+		}
+	}
+	if (_method != "POST" && _method != "PUT" && _method != "PATCH") 
+	{
+		_state = FINISH;
+		return;
+	}
+
+	// Require Content-Length for these methods
+	if (_headers.find("Content-Length") == _headers.end()) 
+	{
+		LOG_DEBUG("Missing Content-Length header");
+		return setStatusCode(400);
+	}
+
+	// Parse Content-Length once
+	if (_contentLength == 0) 
+	{
+		std::string clStr = _headers["Content-Length"];
+		char* end;
+		long parsedCl = std::strtol(clStr.c_str(), &end, 10);
+		if (*end != '\0' || parsedCl < 0) {
+			LOG_DEBUG("Invalid Content-Length: " + clStr);
+			return setStatusCode(400); // Bad Request
+		}
+		_contentLength = static_cast<size_t>(parsedCl);
+		LOG_DEBUG("Content-Length: " + clStr);
+	}
+
+	// Calculate remaining bytes to read
+	size_t remaining = _contentLength - _body.size();
+	size_t toRead = std::min(remaining, _request.size());
+
+	// Append data to body and remove from request buffer
+	_body.append(_request.substr(0, toRead));
+	_request.erase(0, toRead);
+
+	// Check if body is fully received
+	if (_body.size() == _contentLength) 
+	{
+		// Ensure no extra data remains
+		if (!_request.empty()) 
+			return setStatusCode(400);
+		_state = FINISH;
+	} 
+}
+
+void	HTTPRequest::setStatusCode(int code)
+{
+	this->_statusCode = code;
+	this->setState(HTTPRequest::FINISH);
 }

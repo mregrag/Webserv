@@ -36,14 +36,13 @@
 #define QUEUE_CONNEXION 5
 #define MAX_EVENTS 100
 #define MESSAGE_BUFFER 40000
+#define TIMEOUT_CHECK_INTERVAL 10
+#define CONNECTION_TIMEOUT 60 
+#define BUFFER_SIZE 4096
 
 
-template <typename T>
-std::string toString(const T& value)
-{
-    std::ostringstream oss;
-    oss << value;
-    return oss.str();
-}
+
+
+
 
 #endif

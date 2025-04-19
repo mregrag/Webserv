@@ -17,10 +17,10 @@
 class ServerManager
 {
 	private:
-		EpollManager	_epollManager;
+		EpollManager			_epollManager;
 		std::vector<ServerConfig>	_servers;
 		std::map<int, ServerConfig*>	_server_map;
-		std::map<int, Client*>			_clients;
+		std::map<int, Client*>		_clients;
 	public:
 		ServerManager();
 		~ServerManager();
@@ -29,9 +29,10 @@ class ServerManager
 		void run();
 		void handleEvent(struct epoll_event& event);
 		void acceptConnection(ServerConfig& server);
-		void handleClientRequest(int client_fd);
-		void sendResponse(int client_fd);
+		void handleRequest(int client_fd);
+		void handleResponse(int client_fd);
 		void closeConnection(int client_fd);
+		void checkTimeouts(int timeout_seconds);
 
 		void buildResponse(Client* client);
 

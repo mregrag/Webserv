@@ -6,11 +6,12 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:26:11 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/14 16:04:30 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/18 22:45:22 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/LocationConfig.hpp"
+#include "../include/Utils.hpp"
 #include <iostream>
 #include <sstream>
 
@@ -60,14 +61,12 @@ void LocationConfig::setAutoindex(const std::string& autoindex)
 		throw std::runtime_error("Wrong autoindex");
 }
 
-std::string LocationConfig::trim(const std::string& str) 
+bool LocationConfig::isAutoIndexOn() const 
 {
-	size_t first = str.find_first_not_of(" \t");
-	size_t last = str.find_last_not_of(" \t");
-	if (first == std::string::npos || last == std::string::npos) 
-		return "";
-	return str.substr(first, last - first + 1);
+	return (_autoindex);
 }
+
+
 std::vector<std::string> LocationConfig::split(const std::string& str, char delimiter) 
 {
 	std::vector<std::string> tokens;
@@ -75,7 +74,7 @@ std::vector<std::string> LocationConfig::split(const std::string& str, char deli
 	std::istringstream iss(str);
 	while (std::getline(iss, token, delimiter)) 
 	{
-		token = trim(token);
+		token = Utils::trim(token);
 		if (!token.empty()) 
 			tokens.push_back(token);
 	}
@@ -84,7 +83,6 @@ std::vector<std::string> LocationConfig::split(const std::string& str, char deli
 
 std::string LocationConfig::resolvePath(const std::string& requestPath) const 
 {
-	// Remove the location prefix from the request path
 	size_t prefixPos = requestPath.find(_path);
 	if (prefixPos == 0)
 	{
@@ -147,6 +145,18 @@ const std::vector<std::string>& LocationConfig::getAllowedMethods() const
 {
 	return _allowedMethods;
 }
+
+bool LocationConfig::isMethodAllowed(const std::string& method) const
+{
+	if (_allowedMethods.empty())
+		return true;
+
+	for (std::vector<std::string>::const_iterator it = _allowedMethods.begin(); it != _allowedMethods.end(); ++it) 
+		if (*it == method)
+			return (true);
+	return (false);
+}
+
 const std::string& LocationConfig::getCgiExtension() const
 {
 	return _cgiExtension; 

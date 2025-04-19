@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/24 21:24:19 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/14 14:33:57 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/18 14:00:12 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,9 +29,6 @@
 #include <arpa/inet.h> // For inet_ntoa
 #include <cstring>
 
-
-
-
 class ServerConfig
 {
 	private:
@@ -43,7 +40,6 @@ class ServerConfig
 		std::map<std::string, LocationConfig>   _locations;
 		struct sockaddr_in 			_server_address;
 		int     				_server_fd;
-
 		//utils methode
 		bool isValidHost(const std::string& host);
 
