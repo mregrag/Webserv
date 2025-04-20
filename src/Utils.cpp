@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/18 17:17:40 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/18 22:43:17 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/19 22:32:45 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -57,6 +57,15 @@ bool Utils::isDirectory(const std::string& path)
 	return S_ISDIR(pathStat.st_mode);
 }
 
+bool Utils::fileExists(const std::string& path) 
+{
+	struct stat fileInfo;
+
+	if (stat(path.c_str(), &fileInfo))
+		return false;
+	return S_ISREG(fileInfo.st_mode);
+}
+
 std::string Utils::trim(const std::string& str) 
 {
 	size_t first = str.find_first_not_of(" \t");
@@ -64,6 +73,14 @@ std::string Utils::trim(const std::string& str)
 	if (first == std::string::npos || last == std::string::npos) 
 		return "";
 	return str.substr(first, last - first + 1);
+}
+
+void Utils::skipWhitespace(std::string& str) 
+{
+	size_t i = 0;
+	while (i < str.size() && (str[i] == ' ' || str[i] == '\t')) 
+		i++;
+	str.erase(0, i);
 }
 
 std::string Utils::listDirectory(const std::string& dirPath, const std::string& root, const std::string& requestUri)
@@ -128,3 +145,47 @@ std::string Utils::listDirectory(const std::string& dirPath, const std::string& 
 	return body.str();
 }
 
+int Utils::urlDecode(std::string& str) 
+{
+	std::string result;
+	for (size_t i = 0; i < str.size(); i++) 
+	{
+		if (str[i] == '%') 
+		{
+			if (i + 2 >= str.size() || !isxdigit(str[i+1]) || !isxdigit(str[i+2])) 
+				return -1;
+			std::string hex = str.substr(i+1, 2);
+			char decoded = static_cast<char>(strtol(hex.c_str(), NULL, 16));
+			result += decoded;
+			i += 2;
+		} 
+		else if (str[i] == '+') 
+			result += ' ';
+		else 
+			result += str[i];
+	}
+	str = result;
+	return 0;
+}
+
+
+bool strToSizeT(const std::string& str, size_t& result, bool allowZero = false) 
+{
+	if (str.empty()) 
+		return (false);
+
+	for (size_t i = 0; i < str.size(); ++i) 
+		if (!isdigit(str[i])) 
+			return false;
+
+	std::stringstream ss(str);
+	ss >> result;
+
+	if (ss.fail() || !ss.eof()) 
+		return (false);
+
+	if (!allowZero && result == 0) 
+		return (false);
+
+	return (true);
+}

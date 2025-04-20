@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 17:36:21 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/18 23:46:26 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/19 20:54:43 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -86,8 +86,6 @@ void Client::handleResponse()
 	ssize_t byteSend = send(_fd, this->_response->getResponse().c_str(), this->_response->getResponse().size(), 0);
 	if (byteSend == -1)
 		return (LOG_ERROR("Send failed (fd: "  ")"));
-	LOG_DEBUG("Sent response (fd: " + Utils::toString(_fd) + ")");
-	/*closeConnection(_fd);*/
 }
 
 HTTPRequest* Client::getRequest() 

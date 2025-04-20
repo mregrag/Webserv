@@ -6,19 +6,23 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:27:45 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/18 22:40:17 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/19 17:11:46 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/ServerConfig.hpp"
 
-ServerConfig::ServerConfig() : _host(""), _port(0), _serverName(""), _clientMaxBodySize(0)
+
+ServerConfig::ServerConfig() : _host(""), _serverName(""), _clientMaxBodySize(0)
 {
 }
 
-
 ServerConfig::~ServerConfig()
 {
+	// Close any open file descriptors
+	for (size_t i = 0; i < _server_fds.size(); ++i)
+		if (_server_fds[i] >= 0)
+			close(_server_fds[i]);
 }
 
 ServerConfig::ServerConfig(const ServerConfig& other)
@@ -31,13 +35,13 @@ ServerConfig& ServerConfig::operator=(const ServerConfig& other)
 	if (this != &other)
 	{
 		_host = other._host;
-		_port = other._port;
+		_ports = other._ports;
 		_serverName = other._serverName;
 		_clientMaxBodySize = other._clientMaxBodySize;
 		_errorPages = other._errorPages;
 		_locations = other._locations;
-		_server_fd = other._server_fd;
-		_server_address = other._server_address;
+		_server_fds = other._server_fds;
+		_server_addresses = other._server_addresses;
 	}
 	return *this;
 }
@@ -71,16 +75,16 @@ void ServerConfig::setHost(const std::string& host)
 	_host = resolvedHost;
 }
 
-void ServerConfig::setPort(const std::string& Port)
+void ServerConfig::setPort(const std::string& portStr)
 {
-	if (Port.empty())
+	if (portStr.empty())
 		throw ErrorServer("Wrong syntax: port (empty string)");
 
-	for (size_t i = 0; i < Port.length(); ++i)
-		if (!std::isdigit(Port[i]))
+	for (size_t i = 0; i < portStr.length(); ++i)
+		if (!std::isdigit(portStr[i]))
 			throw ErrorServer("Wrong syntax: port (non-digit character)");
 
-	std::stringstream ss(Port);
+	std::stringstream ss(portStr);
 	int port;
 	ss >> port;
 
@@ -89,9 +93,8 @@ void ServerConfig::setPort(const std::string& Port)
 	if (port < 1 || port > 65535)
 		throw ErrorServer("Wrong syntax: port (out of range)");
 
-	_port = static_cast<uint16_t>(port);
+	_ports.push_back(static_cast<uint16_t>(port));
 }
-
 
 void ServerConfig::setServerName(const std::string& name)
 {
@@ -102,14 +105,19 @@ void ServerConfig::setClientMaxBodySize(size_t size)
 {
 	_clientMaxBodySize = size;
 }
+
 void ServerConfig::setErrorPage(int code, const std::string& path)
 {
 	_errorPages[code] = path;
 }
 
-void	ServerConfig::setFd(int fd)
+void ServerConfig::setFd(int fd)
 {
-	this->_server_fd = fd;
+	// This method is now outdated - kept for backward compatibility
+	if (_server_fds.empty())
+		_server_fds.push_back(fd);
+	else
+		_server_fds[0] = fd;
 }
 
 void ServerConfig::addLocation(const std::string& path, const LocationConfig& location)
@@ -122,62 +130,116 @@ const std::string& ServerConfig::getHost() const
 	return (_host);
 }
 
-int ServerConfig::getPort() const
+uint16_t ServerConfig::getPort() const
 {
-	return (_port);
+	return _ports.empty() ? 0 : _ports[0];
+}
+
+const std::vector<uint16_t>& ServerConfig::getPorts() const
+{
+	return _ports;
 }
 
 const std::string& ServerConfig::getServerName() const
 {
 	return (_serverName);
 }
+
 size_t ServerConfig::getClientMaxBodySize() const
 {
 	return (_clientMaxBodySize);
 }
+
 const std::map<int, std::string>& ServerConfig::getErrorPages() const
 {
 	return (_errorPages);
 }
 
-int   	ServerConfig::getFd() 
-{ 
-	return (this->_server_fd); 
+int ServerConfig::getFd(size_t index) const
+{
+	if (index >= _server_fds.size())
+		throw ErrorServer("Server file descriptor index out of range");
+	return _server_fds[index];
+}
+
+const std::vector<int>& ServerConfig::getFds() const
+{
+	return _server_fds;
 }
 
 const std::map<std::string, LocationConfig>& ServerConfig::getLocations() const
 { 
 	return (_locations);
 }
+
 void ServerConfig::setupServer()
 {
-	_server_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (_server_fd == -1)
-		throw ErrorServer("Failed to create socket");
+	// Close any existing sockets
+	for (size_t i = 0; i < _server_fds.size(); ++i)
+	{
+		if (_server_fds[i] >= 0)
+			close(_server_fds[i]);
+	}
+	// Clear vectors
+	_server_fds.clear();
+	_server_addresses.clear();
 
-	int opt = 1;
-	if (setsockopt(_server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
-		throw ErrorServer("Failed to set socket options");
+	for (size_t i = 0; i < _ports.size(); ++i)
+	{
+		int fd = socket(AF_INET, SOCK_STREAM, 0);
+		if (fd == -1)
+			throw ErrorServer("Failed to create socket");
 
-	memset(&_server_address, 0, sizeof(_server_address));
-	_server_address.sin_family = AF_INET;
-	_server_address.sin_addr.s_addr = inet_addr(_host.c_str());
-	_server_address.sin_port = htons(_port);
+		int opt = 1;
+		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
+		{
+			close(fd);
+			throw ErrorServer("Failed to set socket options");
+		}
 
-	if (bind(_server_fd, (struct sockaddr*)&_server_address, sizeof(_server_address)) == -1)
-		throw ErrorServer("Failed to bind socket");
+		struct sockaddr_in address;
+		memset(&address, 0, sizeof(address));
+		address.sin_family = AF_INET;
+		address.sin_addr.s_addr = inet_addr(_host.c_str());
+		address.sin_port = htons(_ports[i]);
 
-	if (listen(_server_fd, SOMAXCONN) == -1)
-		throw ErrorServer("Failed to listen on socket");
+		if (bind(fd, (struct sockaddr*)&address, sizeof(address)) == -1)
+		{
+			close(fd);
+			std::stringstream ss;
+			ss << "Failed to bind socket on port " << _ports[i];
+			throw ErrorServer(ss.str());
+		}
+
+		if (listen(fd, SOMAXCONN) == -1)
+		{
+			close(fd);
+			std::stringstream ss;
+			ss << "Failed to listen on socket on port " << _ports[i];
+			throw ErrorServer(ss.str());
+		}
+
+		// Store the file descriptor and address
+		_server_fds.push_back(fd);
+		_server_addresses.push_back(address);
+	}
 }
-
 
 void ServerConfig::print() const
 {
 	std::cout << "Server Configuration:\n";
 	std::cout << "----------------------\n";
 	std::cout << "Host: " << _host << "\n";
-	std::cout << "Port: " << _port << "\n";
+
+	// Print all ports
+	std::cout << "Ports: ";
+	for (size_t i = 0; i < _ports.size(); ++i)
+	{
+		if (i > 0) std::cout << ", ";
+		std::cout << _ports[i];
+	}
+	std::cout << "\n";
+
 	std::cout << "Server Name: " << _serverName << "\n";
 	std::cout << "Client Max Body Size: " << _clientMaxBodySize << " bytes\n";
 

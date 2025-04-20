@@ -2,18 +2,23 @@
 #include "../include/Utils.hpp"
 #include "../include/webserver.hpp"
 
-HTTPResponse::HTTPResponse(Client *client) : _client(client),  _request(_client->getRequest()),_statusCode(200),_statusMessage("OK"),_body("")
+// Constructor/Destructor
+HTTPResponse::HTTPResponse(Client* client) : _client(client), _request(_client->getRequest()), _statusCode(200), _statusMessage("OK"), _body("") 
 {
 }
 
-HTTPResponse::HTTPResponse(const HTTPResponse &rhs)
+HTTPResponse::HTTPResponse(const HTTPResponse& rhs) 
 {
 	*this = rhs;
 }
 
-HTTPResponse &HTTPResponse::operator=(const HTTPResponse &rhs)
+HTTPResponse::~HTTPResponse() 
 {
-	if (this != &rhs)
+}
+
+HTTPResponse& HTTPResponse::operator=(const HTTPResponse& rhs) 
+{
+	if (this != &rhs) 
 	{
 		_client = rhs._client;
 		_request = rhs._request;
@@ -21,81 +26,94 @@ HTTPResponse &HTTPResponse::operator=(const HTTPResponse &rhs)
 		_statusMessage = rhs._statusMessage;
 		_headers = rhs._headers;
 		_body = rhs._body;
+		_response = rhs._response;
 	}
 	return *this;
 }
 
-HTTPResponse::~HTTPResponse()
-{
-}
-
-void HTTPResponse::clear()
+// Public methods
+void HTTPResponse::clear() 
 {
 	_statusCode = 200;
 	_statusMessage = "OK";
 	_headers.clear();
-	_body = "";
+	_body.clear();
+	_response.clear();
 }
 
-void HTTPResponse::setStatusCode(int code)
+void HTTPResponse::setStatusCode(int code) 
 {
 	_statusCode = code;
 }
 
-void HTTPResponse::setStatusMessage(const std::string &message)
+void HTTPResponse::setStatusMessage(const std::string& message) 
 {
 	_statusMessage = message;
 }
 
-void HTTPResponse::setHeader(const std::string &key, const std::string &value)
+void HTTPResponse::setHeader(const std::string& key, const std::string& value) 
 {
 	_headers[key] = value;
 }
 
-void HTTPResponse::setBody(const std::string &body)
+void HTTPResponse::setBody(const std::string& body) 
 {
 	_body = body;
-	// Update the Content-Length header automatically.
 	std::ostringstream oss;
 	oss << _body.length();
-
-	_headers["Content-Length"] = oss.str();
+	setHeader("Content-Length", oss.str());
 }
 
-std::string HTTPResponse::getResponse() const
+void HTTPResponse::setResponse(const std::string& response) 
+{
+	_response = response;
+}
+
+std::string HTTPResponse::getResponse() const 
 {
 	return _response;
 }
 
-int HTTPResponse::buildResponse(void)
+void HTTPResponse::handlePostRequest() 
 {
+	buildErrorResponse(501, "Not Implemented");
+}
 
-	if (_request->getMethod() == "GET")
-		handleGetRequest();
-	else if (_request->getMethod() == "POST")
-		handlePostRequest();
-	else if (_request->getMethod() == "DELETE")
-		handleDeleteRequest();
-
-	return (0);
+void HTTPResponse::handleDeleteRequest() 
+{
+	buildErrorResponse(501, "Not Implemented");
 }
 
 
-LocationConfig HTTPResponse::findMatchingLocation(const std::string& requestUri) 
+
+int HTTPResponse::buildResponse() 
+{
+	const std::string& method = _request->getMethod();
+
+	if (method == "GET") 
+		handleGetRequest();
+	else if (method == "POST") 
+		handlePostRequest();
+	else if (method == "DELETE") 
+		handleDeleteRequest();
+	else 
+		buildErrorResponse(405, "Method Not Allowed");
+
+	return 0;
+}
+
+LocationConfig HTTPResponse::findMatchingLocation(const std::string& requestUri) const 
 {
 	ServerConfig* config = _client->getServer();
 	const std::map<std::string, LocationConfig>& locations = config->getLocations();
-
-	std::string bestMatch = "";
+	std::string bestMatch;
 
 	for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it) 
 	{
-		const std::string& locationPath = it->first;
-		if (locationPath == requestUri)
+		if (it->first == requestUri) 
 			return it->second;
-		if (requestUri.find(locationPath) == 0) 
-			if (locationPath.length() > bestMatch.length()) 
-				bestMatch = locationPath;
+		if (requestUri.find(it->first) == 0 && it->first.length() > bestMatch.length()) 
+			bestMatch = it->first;
 	}
 
 	if (!bestMatch.empty()) 
@@ -108,78 +126,116 @@ LocationConfig HTTPResponse::findMatchingLocation(const std::string& requestUri)
 	throw std::runtime_error("No matching location found for URI: " + requestUri);
 }
 
-void HTTPResponse::handleGetRequest(void)
+std::string HTTPResponse::buildFullPath(const LocationConfig& location, const std::string& requestUri) const 
 {
-	const std::string& requestUri = _client->getRequest()->getPath();
-	LocationConfig location = findMatchingLocation(requestUri);
-
-	if (!location.isMethodAllowed("GET")) 
-		return(setStatusCode(405));
-
 	std::string relativePath = requestUri.substr(location.getPath().length());
-	std::string filePath = location.getRoot() + relativePath;
+	std::string direPath = location.getRoot() + relativePath;
 
-	if (!filePath.empty() && filePath[filePath.length() - 1] == '/')
-		filePath += location.getIndex();
-
-	std::ifstream file(filePath.c_str(), std::ios::in | std::ios::binary);
-
-	if (!file.is_open())
+	if((!direPath.empty() && direPath[direPath.length() - 1] == '/') || Utils::isDirectory(direPath))
 	{
-		std::string dirPath = location.getRoot() + relativePath;
+		if (!direPath.empty() && direPath[direPath.length() - 1] != '/') 
+			direPath += '/';
 
-		if (Utils::isDirectory(dirPath))
+		std::string indexPath = direPath + location.getIndex();
+
+		if (Utils::fileExists(indexPath)) 
+			return (indexPath);
+	}
+
+	return (direPath);
+}
+
+void HTTPResponse::handleGetRequest() 
+{
+	try {
+		const std::string& requestUri = _request->getPath();
+		LocationConfig location = findMatchingLocation(requestUri);
+
+		if (!location.isMethodAllowed("GET")) 
 		{
-			if (location.isAutoIndexOn())
+			buildErrorResponse(405);
+			return;
+		}
+		std::string fullPath = buildFullPath(location, requestUri);
+		if (Utils::isDirectory(fullPath)) 
+		{
+			if (location.isAutoIndexOn()) 
 			{
-				std::string autoIndexPage = Utils::listDirectory(dirPath, location.getRoot(), requestUri);
-
-				std::ostringstream response;
-				response << "HTTP/1.1 200 OK\r\n"
-					<< "Content-Length: " << autoIndexPage.length() << "\r\n"
-					<< "Content-Type: text/html\r\n"
-					<< "Connection: close\r\n"
-					<< "\r\n"
-					<< autoIndexPage;
-
-				setResponse(response.str());
+				std::string autoIndexContent = Utils::listDirectory(fullPath, location.getRoot(), requestUri);
+				buildAutoIndexResponse(autoIndexContent);
 				return;
 			}
+			buildErrorResponse(403);
+			return;
 		}
-		setStatusCode(404);
-		return;
+		// Handle regular file requests
+		if (!Utils::fileExists(fullPath)) 
+		{
+			buildErrorResponse(404);
+			return;
+		}
+
+		buildSuccessResponse(fullPath);
+
+	} 
+	catch (const std::exception& e) 
+	{
+		buildErrorResponse(500, e.what());
 	}
-	std::stringstream bodyStream;
-	bodyStream << file.rdbuf();
-	file.close();
+}
 
-	std::string contentType = Utils::getMimeType(filePath);
-	std::string body = bodyStream.str();
+std::string HTTPResponse::readFileContent(const std::string& filePath) const 
+{
+	std::ifstream file(filePath.c_str(), std::ios::binary);
+	if (!file.is_open()) 
+		throw std::runtime_error("Could not open file: " + filePath);
 
+	std::stringstream buffer;
+	buffer << file.rdbuf();
+	return buffer.str();
+}
+
+void  HTTPResponse::buildSuccessResponse(const std::string& fullPath)
+{
+	std::string fileContent = readFileContent(fullPath);
 	std::ostringstream response;
-	response << "HTTP/1.1 200 OK\r\n"
-		<< "Content-Length: " << body.length() << "\r\n"
-		<< "Content-Type: " << contentType << "\r\n"
+	response << "HTTP/1.1 " << _statusCode << " " << _statusMessage << "\r\n"
+		<< "Content-Length: " << fileContent.length() << "\r\n"
+		<< "Content-Type: " << Utils::getMimeType(fullPath) << "\r\n"
+		<< "Connection: close\r\n";
+
+	response << "\r\n" << fileContent;
+	this->setResponse(response.str());
+}
+
+void HTTPResponse::buildAutoIndexResponse(const std::string& autoIndexContent)
+{
+	std::ostringstream response;
+	response << "HTTP/1.1 " << _statusCode << " " << _statusMessage << "\r\n"
+		<< "Content-Length: " << autoIndexContent.length() << "\r\n"
+		<< "Content-Type: " << "text/html" << "\r\n"
+		<< "Connection: close\r\n";
+
+	response << "\r\n" << autoIndexContent;
+	this->setResponse(response.str());
+}
+void  HTTPResponse::buildErrorResponse(int statusCode, const std::string& message)
+{
+	
+	ServerConfig* config = _client->getServer();
+	const std::map<int, std::string>& error_pages = config->getErrorPages();
+
+	std::map<int, std::string>::const_iterator it = error_pages.find(statusCode);
+	std::string file_content = it->second;
+
+	std::string fileContent = readFileContent(file_content);
+	std::ostringstream response;
+	std::string statusMsg = message.empty() ? "Error" : message;
+
+	response << "HTTP/1.1 " << statusCode << " " << statusMsg << "\r\n"
+		<< "Content-Type: " << Utils::getMimeType(file_content) << "\r\n"
 		<< "Connection: close\r\n"
 		<< "\r\n"
-		<< body;
-
-	setResponse(response.str());
-}
-
-
-void HTTPResponse::handlePostRequest(void)
-{
-
-}
-
-void HTTPResponse::handleDeleteRequest(void)
-{
-
-
-}
-
-void HTTPResponse::setResponse(const std::string& response)
-{
-	this->_response = response;
+		<< fileContent;
+	this->setResponse(response.str());
 }

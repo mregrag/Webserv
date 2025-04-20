@@ -16,8 +16,12 @@ ServerManager::~ServerManager()
 
 	for (size_t i = 0; i < _servers.size(); ++i)
 	{
-		close(_servers[i].getFd());
-		LOG_DEBUG("Closed server socket (fd: " + Utils::toString(_servers[i].getFd()) + ")");
+		const std::vector<int>& fds = _servers[i].getFds();
+		for (size_t j = 0; j < fds.size(); ++j)
+		{
+			close(fds[j]);
+			LOG_DEBUG("Closed server socket (fd: " + Utils::toString(fds[j]) + ")");
+		}
 	}
 	LOG_INFO("ServerManager shutdown complete");
 }
@@ -30,17 +34,23 @@ void ServerManager::setupServers(const std::vector<ServerConfig>& servers)
 	for (size_t i = 0; i < _servers.size(); ++i)
 	{
 		_servers[i].setupServer();
-		int listen_fd = _servers[i].getFd();
+		const std::vector<int>& fds = _servers[i].getFds();
+		const std::vector<uint16_t>& ports = _servers[i].getPorts();
 
-		if (fcntl(listen_fd, F_SETFL, O_NONBLOCK) == -1)
+		for (size_t j = 0; j < fds.size(); ++j)
 		{
-			LOG_ERROR("Failed to set non-blocking mode for fd: " + Utils::toString(listen_fd));
-			throw std::runtime_error("fcntl failed");
-		}
-		_epollManager.addFd(listen_fd,EPOLLIN | EPOLLET);
-		_server_map[listen_fd] = &_servers[i];
+			int listen_fd = fds[j];
 
-		LOG_INFO("Server created: " + _servers[i].getServerName() + " on " + _servers[i].getHost() + ":" + Utils::toString(_servers[i].getPort()) + " (fd: " + Utils::toString(listen_fd) + ")");
+			if (fcntl(listen_fd, F_SETFL, O_NONBLOCK) == -1)
+			{
+				LOG_ERROR("Failed to set non-blocking mode for fd: " + Utils::toString(listen_fd));
+				throw std::runtime_error("fcntl failed");
+			}
+			_epollManager.addFd(listen_fd, EPOLLIN | EPOLLET);
+			_server_map[listen_fd] = &_servers[i];
+
+			LOG_INFO("Server created: " + _servers[i].getServerName() + " on " + _servers[i].getHost() + ":" + Utils::toString(ports[j]) + " (fd: " + Utils::toString(listen_fd) + ")");
+		}
 	}
 }
 
@@ -82,12 +92,11 @@ void ServerManager::handleEvent(struct epoll_event& event)
 	int fd = event.data.fd;
 
 	if (_server_map.find(fd) != _server_map.end())
-		acceptConnection(*_server_map[fd]);
+		acceptConnection(*_server_map[fd], fd);  // Pass the specific fd that triggered the event
 	else if (event.events & EPOLLIN)
 		handleRequest(fd);
 	else if (event.events & EPOLLOUT)
 		handleResponse(fd);
-	// Handle disconnect or error cases
 	else if (event.events & (EPOLLRDHUP | EPOLLHUP))
 	{
 		LOG_DEBUG("Client disconnected (fd: " + Utils::toString(fd) + ")");
@@ -100,13 +109,13 @@ void ServerManager::handleEvent(struct epoll_event& event)
 	}
 }
 
-void ServerManager::acceptConnection(ServerConfig& server)
+void ServerManager::acceptConnection(ServerConfig& server, int server_fd)
 {
 	struct sockaddr_in client_addr;
 	socklen_t client_len = sizeof(client_addr);
 	memset(&client_addr, 0, client_len);
 
-	int client_fd = accept(server.getFd(), (struct sockaddr*)&client_addr, &client_len);
+	int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
 	if (client_fd == -1)
 		throw ErrorServer("Accept failed");
 
@@ -120,7 +129,17 @@ void ServerManager::acceptConnection(ServerConfig& server)
 	char ip_str[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, INET_ADDRSTRLEN);
 
-	LOG_INFO("Accepted new connection from " + std::string(ip_str) + " on server " + server.getServerName() + " (fd: " + Utils::toString(client_fd) + ")");
+	// Find which port this connection came in on
+	uint16_t port = 0;
+	const std::vector<int>& fds = server.getFds();
+	const std::vector<uint16_t>& ports = server.getPorts();
+	for (size_t i = 0; i < fds.size(); ++i) {
+		if (fds[i] == server_fd) {
+			port = ports[i];
+			break;
+		}
+	}
+	LOG_INFO("Accepted new connection from " + std::string(ip_str) + " on server " + server.getServerName() + " port " + Utils::toString(port) + " (fd: " + Utils::toString(client_fd) + ")");
 }
 
 void ServerManager::handleRequest(int client_fd)
@@ -133,11 +152,11 @@ void ServerManager::handleRequest(int client_fd)
 
 	if (bytes_read > 0)
 	{
-		LOG_DEBUG("[handleRequest] Received %d bytes from client %d" + Utils::toString(bytes_read) + Utils::toString(client_fd));
+		LOG_DEBUG("[handleRequest] Received " + Utils::toString(bytes_read) + " bytes from client " + Utils::toString(client_fd));
 		buffer[bytes_read] = '\0';
 	}
 	else if (bytes_read < 0)
-		ErrorServer("Error with recv function");
+		throw ErrorServer("Error with recv function");
 	else if (bytes_read == 0)
 	{
 		LOG_INFO("Client disconnected (fd: " + Utils::toString(client_fd) + ")");
@@ -157,7 +176,6 @@ void ServerManager::handleResponse(int client_fd)
 	LOG_DEBUG("Sent response (fd: " + Utils::toString(client_fd) + ")");
 
 	closeConnection(client_fd);
-
 }
 
 void ServerManager::closeConnection(int client_fd)

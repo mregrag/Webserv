@@ -29,6 +29,7 @@ class ServerManager
 		void run();
 		void handleEvent(struct epoll_event& event);
 		void acceptConnection(ServerConfig& server);
+		void acceptConnection(ServerConfig& server, int server_fd);
 		void handleRequest(int client_fd);
 		void handleResponse(int client_fd);
 		void closeConnection(int client_fd);

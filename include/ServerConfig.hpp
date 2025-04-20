@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/24 21:24:19 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/18 14:00:12 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/19 16:26:19 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,17 +28,19 @@
 #include <netdb.h>     // For getaddrinfo
 #include <arpa/inet.h> // For inet_ntoa
 #include <cstring>
+#include "../include/Utils.hpp"
 
 class ServerConfig
 {
 	private:
 		std::string _host;
-		uint16_t _port;
+		std::vector<uint16_t> _ports;
 		std::string _serverName;
 		size_t _clientMaxBodySize;
 		std::map<int, std::string> _errorPages;
 		std::map<std::string, LocationConfig>   _locations;
-		struct sockaddr_in 			_server_address;
+		std::vector<struct sockaddr_in> _server_addresses;
+		std::vector<int> _server_fds;
 		int     				_server_fd;
 		//utils methode
 		bool isValidHost(const std::string& host);
@@ -57,12 +59,14 @@ class ServerConfig
 		void addLocation(const std::string& path, const LocationConfig& location);
 		void setFd(int fd);
 
-		int getPort() const;
-		int   	getFd();
+		uint16_t getPort() const;
+		int getFd(size_t index) const;
+		const std::vector<int>& getFds() const;
 		size_t getClientMaxBodySize() const;
 		const std::string& getServerName() const;
 		const std::string& getHost() const;
 		const std::map<int, std::string>& getErrorPages() const;
+		const std::vector<uint16_t>& getPorts() const;
 		const std::map<std::string, LocationConfig>& getLocations() const;
 
 		void print() const;

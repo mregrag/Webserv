@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/18 17:22:42 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/18 22:42:56 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/19 22:33:26 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -38,7 +38,10 @@ namespace Utils
 	std::string listDirectory(const std::string& dirPath, const std::string& root, const std::string& requestUri);
 	bool isPathWithinRoot(const std::string& root, const std::string& path);
 	bool isDirectory(const std::string& path);
+	bool fileExists(const std::string& path);
 	std::string trim(const std::string& str);
+	void skipWhitespace(std::string& str);
+	int urlDecode(std::string& str);
 }
 
 #endif
