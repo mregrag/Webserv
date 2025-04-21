@@ -47,15 +47,26 @@ int HTTPRequest::getStatusCode() const
 // Main parsing function
 void HTTPRequest::parse(const std::string& rawdata) 
 {
-	if (_state == FINISH)
-		return;
+     if (_state == FINISH || rawdata.empty()) 
+         return;
+     _request.append(rawdata);
 
-	_request.append(rawdata);
-	if (_request.empty()) return;
+    parseRequestLine();
+    parseRequestHeader();
+    parseRequestBody();
+    std::cout << "------------------------------" << std::endl;
+    std::cout << "method  : " << _method << std::endl;
+    std::cout << "_uri  : " << _uri << std::endl;
+    std::cout << "_path  : " << _path << std::endl;
+    std::cout << "_query  : " << _query << std::endl;
+    std::cout << "_protocol  : " << _protocol << std::endl;
+    std::cout << "==== Headers ====" << std::endl;
+    for (std::map<std::string, std::string>::iterator it = _headers.begin(); it != _headers.end(); ++it)
+        std::cout << it->first << ": " << it->second << std::endl;
+    std::cout << "----------------_body----------------" << std::endl;
+    std::cout << _body << std::endl;
+    std::cout << "----------------" << std::endl;
 
-	parseRequestLine();
-	parseRequestHeader();
-	parseRequestBody();
 }
 
 // Request line parsing
@@ -177,17 +188,20 @@ void HTTPRequest::checkLineEnd()
 // Header parsing
 void HTTPRequest::parseRequestHeader() 
 {
-	if (_state < HEADERS_INIT || _state > HEADERS_END) 
-		return;
-	if (_state == HEADERS_INIT) 
-		_state = HEADERS_KEY;
+	while (_state >= HEADERS_INIT && _state <= HEADERS_END)
+	{
+		if (_state == HEADERS_INIT)
+			_state = HEADERS_KEY;
+		else if (_state == HEADERS_KEY)
+			parseHeaderKey();
+		else if (_state == HEADERS_VALUE)
+			parseHeaderValue();
+		else if (_state == HEADERS_END)
+			checkHeaderEnd();
 
-	if (_state == HEADERS_KEY) 
-		parseHeaderKey();
-	if (_state == HEADERS_VALUE) 
-		parseHeaderValue();
-	if (_state == HEADERS_END) 
-		checkHeaderEnd();
+		if (_statusCode != 0)
+			break;
+	}
 }
 
 void HTTPRequest::parseHeaderKey() 
@@ -359,3 +373,12 @@ void HTTPRequest::setStatusCode(int code)
 }
 
 
+void HTTPRequest::print()
+{
+	std::cout << "Methode : " << _method << std::endl;
+	std::cout << "URI : " << _uri << std::endl;
+	std::cout << "Protocol : " << _protocol << std::endl;
+	for (std::map<std::string, std::string>::iterator it = _headers.begin()
+		; it != _headers.end(); it++)
+		std::cout << it->first << " : " << it->second << std::endl;
+}

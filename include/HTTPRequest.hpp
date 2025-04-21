@@ -66,6 +66,10 @@ class HTTPRequest
 		void parseHeaderEnd();
 		void checkHeaderEnd();
 
+		void print();
+
+		bool	is_well_formed();
+
 	private:
 		std::string _request;
 		std::map<std::string, std::string> _headers;
