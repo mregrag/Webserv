@@ -1,9 +1,9 @@
 #include "../include/HTTPResponse.hpp"
 #include "../include/Utils.hpp"
+#include "../include/Logger.hpp"
 #include "../include/webserver.hpp"
 
-// Constructor/Destructor
-HTTPResponse::HTTPResponse(Client* client) : _client(client), _request(_client->getRequest()), _statusCode(200), _statusMessage("OK"), _body("") 
+HTTPResponse::HTTPResponse(Client* client) : _client(client), _request(_client->getRequest()), _statusCode(200), _statusMessage("OK"), _body(""), _state(INIT)
 {
 }
 
@@ -76,18 +76,19 @@ std::string HTTPResponse::getResponse() const
 
 void HTTPResponse::handlePostRequest() 
 {
-	buildErrorResponse(501, "Not Implemented");
+	buildErrorResponse(501);
 }
 
 void HTTPResponse::handleDeleteRequest() 
 {
-	buildErrorResponse(501, "Not Implemented");
+	buildErrorResponse(501);
 }
-
-
 
 int HTTPResponse::buildResponse() 
 {
+	if (_request->getStatusCode() != 200)
+		return (buildErrorResponse(_request->getStatusCode()), 0);
+
 	const std::string& method = _request->getMethod();
 
 	if (method == "GET") 
@@ -97,7 +98,7 @@ int HTTPResponse::buildResponse()
 	else if (method == "DELETE") 
 		handleDeleteRequest();
 	else 
-		buildErrorResponse(405, "Method Not Allowed");
+		buildErrorResponse(405);
 
 	return 0;
 }
@@ -152,36 +153,41 @@ void HTTPResponse::handleGetRequest()
 		LocationConfig location = findMatchingLocation(requestUri);
 
 		if (!location.isMethodAllowed("GET")) 
-		{
-			buildErrorResponse(405);
-			return;
-		}
+			return(buildErrorResponse(405));
+
 		std::string fullPath = buildFullPath(location, requestUri);
 		if (Utils::isDirectory(fullPath)) 
 		{
 			if (location.isAutoIndexOn()) 
 			{
 				std::string autoIndexContent = Utils::listDirectory(fullPath, location.getRoot(), requestUri);
-				buildAutoIndexResponse(autoIndexContent);
-				return;
+				return(buildAutoIndexResponse(autoIndexContent));
 			}
-			buildErrorResponse(403);
-			return;
-		}
-		// Handle regular file requests
-		if (!Utils::fileExists(fullPath)) 
-		{
-			buildErrorResponse(404);
-			return;
-		}
+			return(buildErrorResponse(403));
 
+		}
+		if (!Utils::fileExists(fullPath)) 
+			return(buildErrorResponse(404));
+
+		setState(FINISH);
 		buildSuccessResponse(fullPath);
 
 	} 
 	catch (const std::exception& e) 
 	{
-		buildErrorResponse(500, e.what());
+		buildErrorResponse(500);
 	}
+}
+
+
+void HTTPResponse::setState(response_state state)
+{
+	if (this->_state == FINISH)
+		return (LOG_DEBUG("[setState (response)] Response already finished"));
+	if (this->_state == state)
+		return (LOG_DEBUG("[setState (response)] Response already in this state"));
+
+	this->_state = state;
 }
 
 std::string HTTPResponse::readFileContent(const std::string& filePath) const 
@@ -201,8 +207,7 @@ void  HTTPResponse::buildSuccessResponse(const std::string& fullPath)
 	std::ostringstream response;
 	response << "HTTP/1.1 " << _statusCode << " " << _statusMessage << "\r\n"
 		<< "Content-Length: " << fileContent.length() << "\r\n"
-		<< "Content-Type: " << Utils::getMimeType(fullPath) << "\r\n"
-		<< "Connection: close\r\n";
+		<< "Content-Type: " << Utils::getMimeType(fullPath) << "\r\n";
 
 	response << "\r\n" << fileContent;
 	this->setResponse(response.str());
@@ -213,13 +218,12 @@ void HTTPResponse::buildAutoIndexResponse(const std::string& autoIndexContent)
 	std::ostringstream response;
 	response << "HTTP/1.1 " << _statusCode << " " << _statusMessage << "\r\n"
 		<< "Content-Length: " << autoIndexContent.length() << "\r\n"
-		<< "Content-Type: " << "text/html" << "\r\n"
-		<< "Connection: close\r\n";
+		<< "Content-Type: " << "text/html" << "\r\n";
 
 	response << "\r\n" << autoIndexContent;
 	this->setResponse(response.str());
 }
-void  HTTPResponse::buildErrorResponse(int statusCode, const std::string& message)
+void  HTTPResponse::buildErrorResponse(int statusCode)
 {
 	
 	ServerConfig* config = _client->getServer();
@@ -230,9 +234,8 @@ void  HTTPResponse::buildErrorResponse(int statusCode, const std::string& messag
 
 	std::string fileContent = readFileContent(file_content);
 	std::ostringstream response;
-	std::string statusMsg = message.empty() ? "Error" : message;
 
-	response << "HTTP/1.1 " << statusCode << " " << statusMsg << "\r\n"
+	response << "HTTP/1.1 " << statusCode << " " << Utils::getMessage(statusCode) << "\r\n"
 		<< "Content-Type: " << Utils::getMimeType(file_content) << "\r\n"
 		<< "Connection: close\r\n"
 		<< "\r\n"

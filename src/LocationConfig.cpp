@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:26:11 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/18 22:45:22 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/24 15:09:10 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -39,6 +39,7 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& other)
 		_allowedMethods = other._allowedMethods;
 		_cgiExtension = other._cgiExtension;
 		_cgiPath = other._cgiPath;
+		_redirect = other._redirect;
 	}
 	return *this;
 }
@@ -100,7 +101,7 @@ void LocationConfig::setAllowedMethods(const std::string& methods)
 	{
 		std::string method = *it;
 
-		if (method == "GET" || method == "POST" || method == "DELETE" || method == "PUT" || method == "HEAD") 
+		if (method == "GET" || method == "POST" || method == "DELETE") 
 			_allowedMethods.push_back(method);
 		else 
 			throw std::runtime_error("Invalid HTTP method: " + method);
@@ -135,6 +136,26 @@ bool LocationConfig::getAutoindex() const
 void LocationConfig::setPath(const std::string& path)
 {
 	_path = path;
+}
+
+void LocationConfig::setRedirect(const std::string& redirectValue) 
+{
+	std::istringstream iss(redirectValue);
+	if (!(iss >> _redirect.first >> _redirect.second)) 
+		throw std::runtime_error("Invalid redirect format");
+
+	// Remove trailing semicolon if present (C++98 compatible way)
+	if (!_redirect.second.empty()) 
+	{
+		size_t len = _redirect.second.length();
+		if (_redirect.second[len-1] == ';') 
+			_redirect.second.erase(len-1);
+	}
+}
+
+const std::pair<int, std::string>& LocationConfig::getRedirect() const 
+{
+	return _redirect;
 }
 
 const std::string& LocationConfig::getPath() const 
@@ -173,6 +194,7 @@ void LocationConfig::print() const
 	std::cout << "    Root: " << _root << "\n";
 	std::cout << "    Path: " << _path << "\n";
 	std::cout << "    Index: " << _index << "\n";
+	std::cout << "    return: " << _redirect.first <<  " :  " <<  _redirect.second << "\n";
 	std::cout << "    Autoindex: " << (_autoindex ? "on" : "off") << "\n";
 	std::cout << "    Allowed Methods: ";
 	for (size_t i = 0; i < _allowedMethods.size(); ++i)

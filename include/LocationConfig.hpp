@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 16:54:43 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/18 22:44:47 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/20 21:48:24 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -40,8 +40,10 @@ class LocationConfig
 		const std::string& getCgiExtension() const;
 		const std::string& getCgiPath() const;
 		std::string resolvePath(const std::string& requestPath) const;
+		const std::pair<int, std::string>& getRedirect() const;
 
 		void setPath(const std::string& path);
+		void setRedirect(const std::string& redirectValue);
 		const std::string& getPath() const;
 
 
@@ -56,6 +58,7 @@ class LocationConfig
 		std::vector<std::string> _allowedMethods;
 		std::string _cgiExtension;
 		std::string _cgiPath;
+		std::pair<int, std::string> _redirect;
 };
 
 #endif
