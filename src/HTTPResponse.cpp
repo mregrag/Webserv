@@ -16,6 +16,11 @@ HTTPResponse::~HTTPResponse()
 {
 }
 
+void HTTPResponse::setProtocol(const std::string& protocol)
+{
+	_protocol = protocol;
+}
+
 HTTPResponse& HTTPResponse::operator=(const HTTPResponse& rhs) 
 {
 	if (this != &rhs) 
@@ -64,9 +69,16 @@ void HTTPResponse::setBody(const std::string& body)
 	setHeader("Content-Length", oss.str());
 }
 
-void HTTPResponse::setResponse(const std::string& response) 
+void HTTPResponse::setResponse(/*const std::string& response*/) 
 {
-	_response = response;
+	std::ostringstream response;
+	response << _protocol << " " << _statusCode << " " << _statusMessage << "\r\n";
+	for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end();++it)	
+		response << it->first << ": " << it->second << "\r\n";
+	response << "\r\n";
+	response << _body;
+	_response = response.str();
+	setState(FINISH);
 }
 
 std::string HTTPResponse::getResponse() const 
@@ -74,109 +86,138 @@ std::string HTTPResponse::getResponse() const
 	return _response;
 }
 
-void HTTPResponse::handlePostRequest() 
+void HTTPResponse::handlePost() {}
+void HTTPResponse::handleDelete() {}
+
+int HTTPResponse::buildResponse()
 {
-	buildErrorResponse(501);
-}
-
-void HTTPResponse::handleDeleteRequest() 
-{
-	buildErrorResponse(501);
-}
-
-int HTTPResponse::buildResponse() 
-{
-	if (_request->getStatusCode() != 200)
-		return (buildErrorResponse(_request->getStatusCode()), 0);
-
-	const std::string& method = _request->getMethod();
-
-	if (method == "GET") 
-		handleGetRequest();
-	else if (method == "POST") 
-		handlePostRequest();
-	else if (method == "DELETE") 
-		handleDeleteRequest();
-	else 
-		buildErrorResponse(405);
-
-	return 0;
-}
-
-LocationConfig HTTPResponse::findMatchingLocation(const std::string& requestUri) const 
-{
-	ServerConfig* config = _client->getServer();
-	const std::map<std::string, LocationConfig>& locations = config->getLocations();
-	std::string bestMatch;
-
-	for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it) 
+	// don t forget to handel non-finish request if you have to.
+	if (is_req_well_formed())
+		return -1;
+	get_matched_location_for_request_uri(_request->getPath());
+	if (!_hasMatchedLocation)
 	{
-		if (it->first == requestUri) 
-			return it->second;
-		if (requestUri.find(it->first) == 0 && it->first.length() > bestMatch.length()) 
-			bestMatch = it->first;
+		buildErrorResponse(404 ,"Not Found");
+		return -1;
 	}
-
-	if (!bestMatch.empty()) 
-		return locations.find(bestMatch)->second;
-
-	std::map<std::string, LocationConfig>::const_iterator defaultLoc = locations.find("/");
-	if (defaultLoc != locations.end()) 
-		return defaultLoc->second;
-
-	throw std::runtime_error("No matching location found for URI: " + requestUri);
-}
-
-std::string HTTPResponse::buildFullPath(const LocationConfig& location, const std::string& requestUri) const 
-{
-	std::string relativePath = requestUri.substr(location.getPath().length());
-	std::string direPath = location.getRoot() + relativePath;
-
-	if((!direPath.empty() && direPath[direPath.length() - 1] == '/') || Utils::isDirectory(direPath))
+	if (_matched_location.is_location_have_redirection())
 	{
-		if (!direPath.empty() && direPath[direPath.length() - 1] != '/') 
-			direPath += '/';
-
-		std::string indexPath = direPath + location.getIndex();
-
-		if (Utils::fileExists(indexPath)) 
-			return (indexPath);
+		// handel redirection
+		return 1;
 	}
-
-	return (direPath);
+	if (!_matched_location.isMethodAllowed(_request->getMethod()))
+	{
+		buildErrorResponse(405, "Method Not Allowed");
+		return -1;
+	}
+	if (_request->getMethod() == "GET")
+		handleGet(_matched_location);
+	else if (_request->getMethod() == "POST")
+		handlePost();
+	else if (_request->getMethod() == "DELETE")
+		handleDelete();
+	
+	return 1;
 }
 
-void HTTPResponse::handleGetRequest() 
+void HTTPResponse::get_matched_location_for_request_uri(const std::string& requestUri) 
 {
-	try {
-		const std::string& requestUri = _request->getPath();
-		LocationConfig location = findMatchingLocation(requestUri);
+	std::string best_match;
+	std::map<std::string, LocationConfig> map_locations = _client->getServer()->getLocations();
 
-		if (!location.isMethodAllowed("GET")) 
-			return(buildErrorResponse(405));
-
-		std::string fullPath = buildFullPath(location, requestUri);
-		if (Utils::isDirectory(fullPath)) 
+	for (std::map<std::string, LocationConfig>::iterator it = map_locations.begin()
+		; it != map_locations.end();it++)
+	{
+		if (it->first == requestUri)
 		{
-			if (location.isAutoIndexOn()) 
-			{
-				std::string autoIndexContent = Utils::listDirectory(fullPath, location.getRoot(), requestUri);
-				return(buildAutoIndexResponse(autoIndexContent));
-			}
-			return(buildErrorResponse(403));
-
+			_hasMatchedLocation = true;
+			_matched_location = it->second ;
+			return ;
 		}
-		if (!Utils::fileExists(fullPath)) 
-			return(buildErrorResponse(404));
-
-		setState(FINISH);
-		buildSuccessResponse(fullPath);
-
-	} 
-	catch (const std::exception& e) 
-	{
-		buildErrorResponse(500);
+		if (requestUri.find(it->first) == 0)// /foo /foobar
+		{
+			if (requestUri.size() == it->first.size() || requestUri[it->first.size() - 1] == '/')
+			{
+				if (best_match.size() < it->first.size())
+				{
+					best_match = it->first;
+					_hasMatchedLocation = true;
+					_matched_location = it->second;
+				}
+			}
+		}
 	}
+	// _matched_location.print();
+}
+
+void HTTPResponse::handleGet(LocationConfig location)
+{
+	std::string resource = get_requested_resource(location);
+	std::cout << "get_requested_resource: " << resource << std::endl;
+	if (access(resource.c_str(), F_OK) == 0)
+	{
+		if (get_resource_type(resource))// true if it is a regular file
+		{
+			if (location.if_location_has_cgi())
+			{
+				// code of cgi
+			}
+			else
+				buildSuccessResponse(resource);
+		}
+		else// is a directory
+		{
+			if (is_uri_has_backslash_in_end(resource))
+			{
+				if (is_dir_has_index_files(resource, location.getIndex()))
+				{
+					if (location.if_location_has_cgi())
+					{
+						// run the cgi
+					}
+					else
+						buildSuccessResponse(resource + location.getIndex());
+				}
+				else
+				{
+					if (location.getAutoindex())
+					{
+						/*
+							resource is a directory that exist and have backslash at the end and there
+							is no index file in the location of it
+						*/
+						std::vector<std::string> ls;
+						DIR	*dir = opendir(resource.c_str());
+						if (dir == NULL)
+						{
+							if (access(resource.c_str(), R_OK | X_OK))
+								buildErrorResponse(403, "Forbidden");
+							else
+								buildErrorResponse(500, "Internal Server Error");
+							return ;
+						}
+						struct dirent* entry = readdir(dir);
+						while ((entry = readdir(dir)) != NULL)
+						{
+							if (std::string(entry->d_name) == "." || std::string(entry->d_name) == "..")
+								continue ;
+							ls.push_back(entry->d_name);
+						}
+						buildAutoIndexResponse(ls, _request->getPath()); 
+					}
+					else
+						buildErrorResponse(403 , "Forbidden");
+				}
+			}
+			else
+			{
+				// make a 301 redirection to request
+				// uri with “/” addeed at the end
+			}
+		}
+	}
+	else
+		buildErrorResponse(404, "Not Found");
 }
 
 
@@ -190,6 +231,86 @@ void HTTPResponse::setState(response_state state)
 	this->_state = state;
 }
 
+// new
+
+bool HTTPResponse::is_req_well_formed()
+{
+	std::string encoding = _request->getHeaderValue("Transfer-Encoding");
+	std::string content_lenght = _request->getHeaderValue("Content-Length");
+	if (!encoding.empty() && encoding != "chunked")
+	{
+		buildErrorResponse(501 ,"Not Implemented");
+		return true;
+	}
+	if (encoding.empty() && content_lenght.empty() && _request->getMethod() == "POST")
+	{
+		buildErrorResponse(400, "Bad Request");
+		return true;
+	}
+	std::string uri = _request->getUri();
+	size_t index = uri.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~:/?#[]@!$&'()*+,;=");
+	if (index != std::string::npos)
+	{
+		buildErrorResponse(400, "Bad Request");
+		return true;
+	}
+	if (uri.size() > 2048)
+	{
+		buildErrorResponse(414, "Request-URI Too Long");
+		return true;
+	}
+	if (_request->getBody().size() > _client->getServer()->getClientMaxBodySize() )
+	{
+		buildErrorResponse(413, "Request Entity Too Large");
+		return true;
+	}
+	return false;
+}
+
+const std::string HTTPResponse::get_requested_resource(LocationConfig location)
+{
+	std::string	root = location.getRoot() ;
+	std::string	path = _request->getPath();
+	size_t	a = 0;
+
+	for (size_t i = 0; i < path.size(); i++)
+	{
+		if (path[i] == '/' && i + 1 < path.size())
+			a = i;
+	}
+	path = path.substr(a + 1, path.size());
+	return root + path;
+}
+
+bool HTTPResponse::get_resource_type(std::string resource)
+{
+    struct stat path_stat;
+	stat(resource.c_str(), &path_stat);
+	if (S_ISDIR(path_stat.st_mode))
+		return false; // is a diractory
+	return true;
+}
+
+bool HTTPResponse::is_uri_has_backslash_in_end(const std::string& resource)
+{
+	if (resource.empty())
+		return false;
+	if (resource[resource.size() - 1] == '/')
+		return true;
+	return false;
+}
+
+bool HTTPResponse::is_dir_has_index_files(const std::string& resource, const std::string& index)
+{
+	//TODO this is not good
+	std::string	fullPath = resource + index;
+	if (access(fullPath.c_str(), F_OK) == 0 && !index.empty())
+		return true;
+	return false;
+}
+
+//
+
 std::string HTTPResponse::readFileContent(const std::string& filePath) const 
 {
 	std::ifstream file(filePath.c_str(), std::ios::binary);
@@ -201,44 +322,74 @@ std::string HTTPResponse::readFileContent(const std::string& filePath) const
 	return buffer.str();
 }
 
+#include <sstream>
 void  HTTPResponse::buildSuccessResponse(const std::string& fullPath)
 {
 	std::string fileContent = readFileContent(fullPath);
 	std::ostringstream response;
-	response << "HTTP/1.1 " << _statusCode << " " << _statusMessage << "\r\n"
-		<< "Content-Length: " << fileContent.length() << "\r\n"
-		<< "Content-Type: " << Utils::getMimeType(fullPath) << "\r\n";
 
-	response << "\r\n" << fileContent;
-	this->setResponse(response.str());
+	setStatusCode(_statusCode);
+	setStatusMessage(_statusMessage);
+	setProtocol("HTTP/1.1");
+	setHeader("Content-Type", Utils::getMimeType(fullPath));
+	setHeader("Connection", "keep-alive"); // keep-alive
+	setBody(fileContent);
+	// response << "HTTP/1.1 " << _statusCode << " " << _statusMessage << "\r\n"
+	// 	<< "Content-Length: " << fileContent.length() << "\r\n"
+	// 	<< "Content-Type: " << Utils::getMimeType(fullPath) << "\r\n"
+	// 	<< "Connection: close\r\n";
+
+	// response << "\r\n" << fileContent;
+	this->setResponse();
 }
 
-void HTTPResponse::buildAutoIndexResponse(const std::string& autoIndexContent)
+void HTTPResponse::buildAutoIndexResponse(const std::vector<std::string>& list, const std::string& path) 
 {
-	std::ostringstream response;
-	response << "HTTP/1.1 " << _statusCode << " " << _statusMessage << "\r\n"
-		<< "Content-Length: " << autoIndexContent.length() << "\r\n"
-		<< "Content-Type: " << "text/html" << "\r\n";
-
-	response << "\r\n" << autoIndexContent;
-	this->setResponse(response.str());
-}
-void  HTTPResponse::buildErrorResponse(int statusCode)
-{
+	std::stringstream	ss;
 	
+	ss	<< "<!DOCTYPE html>"
+		<< "<html>"
+		<< "<head>"
+		<< "<title>Index of "<< path << "</title>"
+		<< "</head>"
+		<< "<body>"
+		<< "<h1>Index of " << path <<" </h1>"
+		<< "<ul>"
+		<<  "<li><a href=\"../\">../</a></li>";
+	for (std::vector<std::string>::const_iterator it = list.begin(); it != list.end(); it++)
+		ss << "<li><a href=\"" << *it << "\">" << *it << "</a></li>";
+	ss	<< "</ul>"
+		<< "</body>"
+		<< "</html>";
+	std::string body;
+	body = ss.str();
+	setStatusCode(_statusCode);
+	setProtocol("HTTP/1.1");
+	setStatusMessage(_statusMessage);
+	setHeader("Content-Type", "text/html");
+	setHeader("Connection", "close");
+	setBody(body);
+	setResponse();
+}
+
+void  HTTPResponse::buildErrorResponse(int statusCode, const std::string& message)
+{
+
 	ServerConfig* config = _client->getServer();
 	const std::map<int, std::string>& error_pages = config->getErrorPages();
 
 	std::map<int, std::string>::const_iterator it = error_pages.find(statusCode);
-	std::string file_content = it->second;
+	std::string file_name = it->second;
 
-	std::string fileContent = readFileContent(file_content);
-	std::ostringstream response;
-
-	response << "HTTP/1.1 " << statusCode << " " << Utils::getMessage(statusCode) << "\r\n"
-		<< "Content-Type: " << Utils::getMimeType(file_content) << "\r\n"
-		<< "Connection: close\r\n"
-		<< "\r\n"
-		<< fileContent;
-	this->setResponse(response.str());
+	std::string fileContent = readFileContent(file_name);
+	std::string statusMsg = message.empty() ? "Error" : message;
+	
+	setStatusCode(statusCode);
+	setStatusMessage(message);
+	setProtocol("HTTP/1.1");
+	setHeader("Content-Type", Utils::getMimeType(file_name));
+	setHeader("Connection", "close");
+	setBody(fileContent);
+	
+	this->setResponse();
 }

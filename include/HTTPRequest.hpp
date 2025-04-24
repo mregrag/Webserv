@@ -36,7 +36,9 @@ class HTTPRequest
 		const std::string& getHeaderValue(const std::string& key) const;
 		int getState() const;
 		int getStatusCode() const;
+		const std::string&	getUri() const;
 		void parse(const std::string& rawdata);
+		const std::string&	getBody() const;
 		bool shouldKeepAlive() const;
 		void	parseHeadersKey(void);
 		void	parseHeadersValue(void);

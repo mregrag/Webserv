@@ -78,6 +78,16 @@ HTTPRequest::~HTTPRequest()
 {
 }
 
+const std::string&	HTTPRequest::getUri() const
+{
+	return _uri;
+}
+
+const std::string&	HTTPRequest::getBody() const
+{
+	return _body;
+}
+
 const std::string& HTTPRequest::getMethod() const 
 {
 	return _method;

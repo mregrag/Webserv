@@ -50,6 +50,13 @@ class LocationConfig
 		void print() const;
 		std::vector<std::string> split(const std::string& str, char delimiter);
 
+		bool is_location_have_redirection() { return false; }
+
+		bool if_location_has_cgi() const {
+			//TODO verify also if the file extention have a _cgiExtension
+			return !_cgiExtension.empty() && !_cgiPath.empty();
+		}
+		
 	private:
 		std::string _root;
 		std::string _path;

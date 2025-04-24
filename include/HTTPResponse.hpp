@@ -40,39 +40,51 @@ class HTTPResponse
 
 		void setStatusCode(int code);
 		void setStatusMessage(const std::string& message);
+		void setProtocol(const std::string& protocol);
 		void setHeader(const std::string& key, const std::string& value);
 		void setBody(const std::string& body);
-		void setResponse(const std::string& response);
+		void setResponse(/* const std::string& response */);
 		void setState(response_state state);
 		int getState() const { return _state; }
-
-
 
 		std::string getResponse() const;
 
 
+
+
 	private:
-		void handleGetRequest();
-		void handlePostRequest();
-		void handleDeleteRequest();
+		void handleGet(LocationConfig location);
+		void handlePost();
+		void handleDelete();
 
-		LocationConfig findMatchingLocation(const std::string& requestUri) const;
+		void	get_matched_location_for_request_uri(const std::string& requestUri);
+		
+		
+		bool	is_req_well_formed();
+		const std::string get_requested_resource(LocationConfig location);
+		bool get_resource_type(std::string resource);
+		bool is_uri_has_backslash_in_end(const std::string& resource);
+		bool is_dir_has_index_files(const std::string& resource, const std::string& index);
 
-		std::string buildFullPath(const LocationConfig& location, const std::string& requestUri) const;
 		std::string readFileContent(const std::string& filePath) const;
 
 		void buildSuccessResponse(const std::string& fullPath);
-		void buildAutoIndexResponse(const std::string& autoIndexContent);
-		void buildErrorResponse(int statusCode);
+		void buildAutoIndexResponse(const std::vector<std::string>& list, const std::string& path);
+		void buildErrorResponse(int statusCode, const std::string& message = "");
 
 		Client* _client;
 		HTTPRequest* _request;
 		int _statusCode;
+		std::string	_protocol;
 		std::string _statusMessage;
 		std::map<std::string, std::string> _headers;
 		std::string _body;
 		std::string _response;
 		response_state	_state;
+
+		// new
+		LocationConfig	_matched_location;
+		bool			_hasMatchedLocation;
 };
 
 #endif // HTTPRESPONSE_HPP
