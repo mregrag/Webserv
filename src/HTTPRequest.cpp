@@ -12,7 +12,7 @@
 #include <iostream>
 #include <algorithm>
 
-HTTPRequest::HTTPRequest() : _client(NULL),_statusCode(0),_state(INIT),_parsePosition(0),_contentLength(0),_isChunked(false),_keepAlive(false), _chunkSize(-1)
+HTTPRequest::HTTPRequest() : _client(NULL),_statusCode(0),_state(INIT),_parsePosition(0),_contentLength(0),_isChunked(false),_keepAlive(false), _chunkSize(-1),_matchedLocation(NULL), _finalLocation(NULL)
 {
 }
 
@@ -43,6 +43,15 @@ HTTPRequest::HTTPRequest(const HTTPRequest& other)
 bool HTTPRequest::shouldKeepAlive() const
 {
 	return _keepAlive;
+}
+const LocationConfig* HTTPRequest::getMatchedLocation() const 
+{
+	return _matchedLocation;
+}
+
+const LocationConfig* HTTPRequest::getFinalLocation() const 
+{
+	return _finalLocation;
 }
 
 HTTPRequest& HTTPRequest::operator=(const HTTPRequest& other) 
@@ -249,10 +258,48 @@ void HTTPRequest::parseUri()
 		} 
 		else 
 			_path = _uri;
-
+		findLocation();
 		setState(LINE_VERSION);
 	}
 }
+
+// Helper to find location by path
+const LocationConfig* HTTPRequest::findLocationByPath(const std::string& path) const 
+{
+	const std::map<std::string, LocationConfig>& locations = 
+		_client->getServer()->getLocations();
+
+	// 1. Check exact match
+	std::map<std::string, LocationConfig>::const_iterator it = locations.find(path);
+	if (it != locations.end()) 
+		return &it->second;
+
+	// 2. Find best prefix match
+	std::string bestMatch;
+	for (it = locations.begin(); it != locations.end(); ++it) 
+	{
+		if (path.compare(0, it->first.length(), it->first) == 0 && it->first.length() > bestMatch.length()) 
+			bestMatch = it->first;
+	}
+
+	if (!bestMatch.empty()) 
+		return &locations.find(bestMatch)->second;
+
+	// 3. Fallback to default location
+	it = locations.find("/");
+	return (it != locations.end()) ? &it->second : NULL;
+}
+
+void HTTPRequest::findLocation() 
+{
+	_matchedLocation = findLocationByPath(_path);
+	_finalLocation = _matchedLocation;
+
+	// Follow redirects if any
+	if (_matchedLocation && _matchedLocation->hasRedirection()) 
+		_finalLocation = findLocationByPath(_matchedLocation->getRedirectPath());
+}
+
 
 void HTTPRequest::parseVersion() 
 {
@@ -385,7 +432,7 @@ void HTTPRequest::parseHeadersValue()
 	size_t i = 0;
 	size_t rawSize = _request.size();
 	bool found = false;
-	
+
 	// Skip leading whitespace
 	while (i < rawSize && _tmpHeaderValue.empty() && (_request[i] == ' ' || _request[i] == '\t'))
 		i++;
@@ -487,34 +534,13 @@ int	HTTPRequest::checkTransferEncoding(void)
 }
 
 
-LocationConfig HTTPRequest::findMatchingLocation(const std::string& requestUri) const 
-{
-	ServerConfig* config = _client->getServer();
-	const std::map<std::string, LocationConfig>& locations = config->getLocations();
-	std::string bestMatch;
-
-	for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it) 
-	{
-		if (it->first == requestUri) 
-			return it->second;
-		if (requestUri.find(it->first) == 0 && it->first.length() > bestMatch.length()) 
-			bestMatch = it->first;
-	}
-	if (!bestMatch.empty()) 
-		return locations.find(bestMatch)->second;
-
-	std::map<std::string, LocationConfig>::const_iterator defaultLoc = locations.find("/");
-	if (defaultLoc != locations.end()) 
-		return defaultLoc->second;
-
-	throw std::runtime_error("No matching location found for URI: " + requestUri);
-}
-
 void HTTPRequest::parseRequestBody() 
 {
 	if (_state < BODY_INIT) 
 		return;
 
+	if (this->_isChunked == true)
+		this->parseChunkBody();
 	// Store the entire remaining buffer as the body
 	_body = _request;
 	_request.clear();

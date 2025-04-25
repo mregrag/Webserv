@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 16:54:43 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/20 21:48:24 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/25 02:45:57 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,7 +22,7 @@ class LocationConfig
 		LocationConfig();
 		~LocationConfig();
 		LocationConfig(const LocationConfig& other);
-		LocationConfig& operator=(const LocationConfig& other);
+		LocationConfig& operator=(const LocationConfig& other); 
 
 		void setRoot(const std::string& root);
 		void setIndex(const std::string& index);
@@ -46,11 +46,15 @@ class LocationConfig
 		void setRedirect(const std::string& redirectValue);
 		const std::string& getPath() const;
 
+		bool hasRedirection() const;
+
+		const std::string& getRedirectPath() const; 
+
+		int getRedirectCode() const; 
+
 
 		void print() const;
 		std::vector<std::string> split(const std::string& str, char delimiter);
-
-		bool is_location_have_redirection() { return false; }
 
 		bool if_location_has_cgi() const {
 			//TODO verify also if the file extention have a _cgiExtension

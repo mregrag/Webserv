@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 16:10:25 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/23 19:14:12 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/24 21:37:27 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -83,7 +83,7 @@ class HTTPResponse
 		response_state	_state;
 
 		// new
-		LocationConfig	_matched_location;
+		LocationConfig		_matched_location;
 		bool			_hasMatchedLocation;
 };
 

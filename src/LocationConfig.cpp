@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:26:11 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/24 15:09:10 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/25 02:46:51 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -151,6 +151,7 @@ void LocationConfig::setRedirect(const std::string& redirectValue)
 		if (_redirect.second[len-1] == ';') 
 			_redirect.second.erase(len-1);
 	}
+
 }
 
 const std::pair<int, std::string>& LocationConfig::getRedirect() const 
@@ -178,6 +179,22 @@ bool LocationConfig::isMethodAllowed(const std::string& method) const
 	return (false);
 }
 
+
+bool LocationConfig::hasRedirection() const 
+{
+	return !_redirect.second.empty();
+}
+
+const std::string& LocationConfig::getRedirectPath() const 
+{
+	return _redirect.second;
+}
+
+int LocationConfig::getRedirectCode() const 
+{
+	return _redirect.first;
+}
+
 const std::string& LocationConfig::getCgiExtension() const
 {
 	return _cgiExtension; 
@@ -190,7 +207,7 @@ const std::string& LocationConfig::getCgiPath() const
 
 void LocationConfig::print() const
 {
-	std::cout << "  Location Config:\n";
+	std::cout << "    Location Config:\n";
 	std::cout << "    Root: " << _root << "\n";
 	std::cout << "    Path: " << _path << "\n";
 	std::cout << "    Index: " << _index << "\n";

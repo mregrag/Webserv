@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 16:09:58 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/24 16:47:05 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/25 02:56:38 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -50,6 +50,10 @@ class HTTPRequest
 		LocationConfig findMatchingLocation(const std::string& requestUri) const;
 		void	defineBodyDestination(void);
 		int	checkClientMaxBodySize(void);
+		void findLocation(void);
+		const LocationConfig* findLocationByPath(const std::string& path) const;
+		const LocationConfig* getMatchedLocation() const;
+		const LocationConfig* getFinalLocation() const;
 
 		enum ParseState {
 			INIT, LINE_METHOD, LINE_URI, LINE_VERSION, LINE_END,
@@ -85,6 +89,8 @@ class HTTPRequest
 		std::string         _host;
 		bool                _keepAlive;
 		int		    _chunkSize;
+		const LocationConfig* _matchedLocation;
+		const LocationConfig* _finalLocation; 
 
 		// Helper functions
 		void setStatusCode(int code);
@@ -105,6 +111,8 @@ class HTTPRequest
 		std::string parseHeaderValue();
 		bool isVersionChar(char c) const;
 		bool isValidHeaderKeyChar(char c) const;
+
+
 
 		void parseRequestBody();
 		// Debug functions
