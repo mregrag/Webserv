@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:29:36 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/20 21:51:51 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/02 16:53:40 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -292,7 +292,7 @@ void ConfigParser::parseServerBlock(const std::string& block)
 			else if (key == "server_name")
 				server.setServerName(value);
 			else if (key == "client_max_body_size")
-				server.setClientMaxBodySize(std::atoi(value.c_str()));
+				server.setClientMaxBodySize(value);
 			else if (key == "error_page") 
 			{
 				std::vector<std::string> tokens = split(value, ' ');
@@ -346,6 +346,8 @@ LocationConfig ConfigParser::parseLocationBlock(const std::string& locationHeade
 			location.setAllowedMethods(value);
 		else if (key == "cgi_extension")
 			location.setCgiExtension(value);
+		else if (key == "upload_path")
+			location.setUploadPath(value);
 		else if (key == "cgi_path")
 			location.setCgiPath(value);
 	}

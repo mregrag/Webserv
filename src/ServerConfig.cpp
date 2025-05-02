@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:27:45 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/25 01:31:17 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/02 16:56:13 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -101,9 +101,9 @@ void ServerConfig::setServerName(const std::string& name)
 	_serverName = name;
 }
 
-void ServerConfig::setClientMaxBodySize(size_t size)
+void ServerConfig::setClientMaxBodySize(const std::string& size)
 {
-	_clientMaxBodySize = size;
+	_clientMaxBodySize = Utils::stringToSizeT(size);
 }
 
 void ServerConfig::setErrorPage(int code, const std::string& path)

@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 16:54:43 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/25 02:45:57 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/29 16:02:18 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -32,6 +32,9 @@ class LocationConfig
 		void setCgiPath(const std::string& path);
 		bool isMethodAllowed(const std::string& method) const;
 		bool isAutoIndexOn() const;
+		 void setUploadPath(const std::string& path) { _uploadPath = path; }
+		 const std::string& getUploadPath() const { return _uploadPath; }
+
 
 		const std::string& getRoot() const;
 		const std::string& getIndex() const;
@@ -69,6 +72,7 @@ class LocationConfig
 		std::vector<std::string> _allowedMethods;
 		std::string _cgiExtension;
 		std::string _cgiPath;
+		std::string _uploadPath;
 		std::pair<int, std::string> _redirect;
 };
 

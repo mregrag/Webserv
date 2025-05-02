@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 16:06:48 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/23 18:38:23 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/01 19:13:33 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,41 +20,39 @@
 # include <string>
 class HTTPResponse;
 class HTTPRequest;
-
 class Client {
 	private:
-		int _fd;
-		ServerConfig* _server;
-		size_t _bytesSent;
-		time_t _lastActivity;
-		std::string _readBuffer;
-		std::string _writeBuffer;
-		HTTPRequest* _request;
-		HTTPResponse* _response;
+		int _fd;                    // Client socket file descriptor
+		ServerConfig* _server;      // Associated server configuration
+		time_t _lastActivity;       // Last activity timestamp
+		std::string _readBuffer;    // Buffer for incoming request data
+		std::string _writeBuffer;   // Buffer for outgoing response data
+		size_t _bytesSent;          // Bytes sent for current response
+		HTTPRequest* _request;      // Request parser
+		HTTPResponse* _response;    // Response generator
+
+		// Private to prevent copying (avoids FD duplication)
+		Client(const Client&);
+		Client& operator=(const Client&);
 
 	public:
-		// Orthodox Canonical Form
-		Client(int fd_client, ServerConfig* server);
-		Client(const Client& other);
+		Client(int fd, ServerConfig* server);
 		~Client();
-		Client& operator=(const Client& other);
+
+		// Handle epoll events
+		void handleRead();  // Process EPOLLIN (read request)
+		void handleWrite(); // Process EPOLLOUT (send response)
 
 		// Getters
 		int getFd() const;
-		void reset(); 
 		time_t getLastActivity() const;
 		ServerConfig* getServer() const;
-		const std::string& getWriteBuffer() const;
-		std::string& getWriteBuffer();
-		const std::string& getReadBuffer() const;
-		size_t& getBytesSent();
 		HTTPRequest* getRequest();
 		HTTPResponse* getResponse();
 
-		// Methods
+		// Utility methods
 		void updateActivity();
-		void handleRequest(void);
-		void handleResponse();
+		void reset(); // Reset for keep-alive connections
 		void clearBuffers();
 };
 

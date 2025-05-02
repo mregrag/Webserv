@@ -16,35 +16,50 @@
 
 class ServerManager 
 {
-	private:
-		std::vector<ServerConfig> _servers;
-		std::map<int, ServerConfig*> _serverMap;
-		std::map<int, Client*> _clients;
-		EpollManager _epollManager;
-
-		// Constants
-		static const int MAX_EVENTS;
-		static const int CONNECTION_TIMEOUT;
-		static const int TIMEOUT_CHECK_INTERVAL;
-		static const int EPOLL_TIMEOUT;
-
-		// Private methods
-		void cleanup();
-		void handleSingleEvent(struct epoll_event& event);
-		void handleNewConnection(int server_fd);
-		void handleClientEvent(int client_fd, uint32_t events);
-		void setNonBlocking(int fd);
-
 	public:
 		ServerManager();
 		~ServerManager();
 
 		void setupServers(const std::vector<ServerConfig>& servers);
-		void run();
-		void closeConnection(int client_fd);
-		void checkTimeouts();
-};
 
+		void run();
+
+	private:
+		static const int MAX_EVENTS = 100; // Maximum epoll events per wait
+		static const int TIMEOUT_CHECK_INTERVAL = 10; // Seconds between timeout checks
+		static const int CONNECTION_TIMEOUT = 30; // Seconds for client inactivity
+
+		std::vector<ServerConfig> _servers; // Server configurations
+		std::map<int, ServerConfig*> _serverMap; // Maps server fds to ServerConfig
+		std::map<int, Client*> _clients; // Maps client fds to Client objects
+		EpollManager _epollManager; // Manages epoll instance
+
+		// Configure a socket as non-blocking
+		void configureSocket(int fd);
+
+		// Register a server socket with epoll
+		void registerServerSocket(int server_fd, ServerConfig* server);
+
+		// Close and clean up all resources
+		void cleanup();
+
+		// Process a single epoll event
+		void handleEvent(const struct epoll_event& event);
+
+		// Accept a new client connection
+		void acceptNewConnection(int server_fd);
+
+		// Handle client read/write events
+		void processClientEvent(int client_fd, uint32_t events);
+
+		// Close a client connection
+		void closeClientConnection(int client_fd);
+
+		// Check for and close timed-out client connections
+		void checkClientTimeouts();
+		void handleReadEvent(Client* client);
+		void handleWriteEvent(Client* client);
+};
 
 #endif
 

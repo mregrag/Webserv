@@ -7,19 +7,24 @@
 #include <unistd.h>
 #include <cstring>
 
-class EpollManager 
+class EpollManager
 {
+	private:
+		int _epollFd;
+
 	public:
 		EpollManager();
 		~EpollManager();
 
-		void addFd(int fd, uint32_t events);   // Register a socket for monitoring
-		void modifyFd(int fd, uint32_t events); // Change monitored events
-		void removeFd(int fd);                 // Stop monitoring an FD
-		int wait(std::vector<struct epoll_event>& events, int timeout); // Wait for events
+		// No copy constructor or assignment operator
+		EpollManager(const EpollManager& other);
+		EpollManager& operator=(const EpollManager& other);
 
-	private:
-		int _epollFd; // File descriptor for the epoll instance
+		void addFd(int fd, uint32_t events);
+		void modifyFd(int fd, uint32_t events);
+		void removeFd(int fd);
+		int wait(std::vector<struct epoll_event>& events, int timeout);
 };
+
 
 #endif

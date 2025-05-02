@@ -2,6 +2,7 @@
 #include "../include/Utils.hpp"
 #include "../include/Logger.hpp"
 #include "../include/webserver.hpp"
+#include <cstdlib>
 #include <iostream>
 
 HTTPResponse::HTTPResponse(Client* client) : _client(client), _request(_client->getRequest()), _statusCode(200), _statusMessage("OK"), _body(""), _state(INIT)
@@ -87,28 +88,34 @@ std::string HTTPResponse::getResponse() const
 	return _response;
 }
 
-void HTTPResponse::handlePost() {}
-void HTTPResponse::handleDelete() {}
+void HTTPResponse::handlePost() 
+{
+	std::string body = "Resource created successfully"; // Example body
+	std::string contentLength = Utils::toString(body.length());
 
+	_response = "HTTP/1.1 201 Created\r\n";
+	_response += "Content-Type: text/plain\r\n";
+	_response += "Content-Length: " + contentLength + "\r\n";
+	_response += "\r\n"; // End of headers
+	_response += body;
+
+	setState(FINISH);
+}
+void HTTPResponse::handleDelete() {}
 
 int HTTPResponse::buildResponse()
 {	
+
 	// don t forget to handel non-finish request if you have to.
 	if (is_req_well_formed())
 		return -1;
 	get_matched_location_for_request_uri(_request->getPath());
-	if (this->_request->getMatchedLocation()->hasRedirection())
-	{
-		std::string Path;
-		Path = _request->getFinalLocation()->getRoot() + _request->getFinalLocation()->getPath() + "/" + _request->getFinalLocation()->getIndex();
-		buildSuccessResponse(Path);
-		return 1;
-	}
 	if (!_hasMatchedLocation)
 	{
 		buildErrorResponse(404 ,"Not Found");
 		return -1;
 	}
+
 	if (!_matched_location.isMethodAllowed(_request->getMethod()))
 	{
 		buildErrorResponse(405, "Method Not Allowed");
@@ -326,7 +333,6 @@ std::string HTTPResponse::readFileContent(const std::string& filePath) const
 	return buffer.str();
 }
 
-#include <sstream>
 void  HTTPResponse::buildSuccessResponse(const std::string& fullPath)
 {
 	std::string fileContent = readFileContent(fullPath);

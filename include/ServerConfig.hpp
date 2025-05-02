@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/24 21:24:19 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/25 01:31:44 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/02 16:55:31 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -54,7 +54,7 @@ class ServerConfig
 		void setHost(const std::string& host);
 		void setPort(const std::string& port);
 		void setServerName(const std::string& name);
-		void setClientMaxBodySize(size_t size);
+		void setClientMaxBodySize(const std::string& size);
 		void setErrorPage(int code, const std::string& path);
 		void addLocation(const std::string& path, const LocationConfig& location);
 		void setFd(int fd);

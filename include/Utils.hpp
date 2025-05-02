@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/18 17:22:42 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/22 00:32:57 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/01 18:59:23 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -43,7 +43,29 @@ namespace Utils
 	void skipWhitespace(std::string& str);
 	int urlDecode(std::string& str);
 	size_t stringToSizeT(const std::string& str);
+	bool isValidMethodToken(const std::string& method);
+
+	size_t skipLeadingWhitespace(const std::string& str);
+	
+	bool isValidMethodChar(char c);
+
+	bool isValidUri(const std::string& uri);
+	bool isSupportedMethod(const std::string& method);
+
+	bool isValidVersion(const std::string& version);
+	bool isValidVersionChar(char c);
+
+	bool isValidHeaderKey(const std::string& key);
+
+	bool isValidHeaderValue(const std::string& value);
+	bool isValidHeaderValueChar(char c);
+
+	bool isValidHeaderKeyChar(char c);
+	bool isValidHeaderValueChar(char c);
+
+	std::string extractAttribute(const std::string& headers, const std::string& key);
 }
+
 
 #endif
 

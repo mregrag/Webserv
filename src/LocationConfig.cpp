@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:26:11 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/25 02:46:51 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/04/29 16:07:00 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,7 +15,7 @@
 #include <iostream>
 #include <sstream>
 
-LocationConfig::LocationConfig() : _root(""), _path(""), _index(""), _autoindex(false), _cgiExtension(""), _cgiPath("")
+LocationConfig::LocationConfig() : _root(""), _path(""), _index(""), _autoindex(false), _cgiExtension(""), _cgiPath(""), _uploadPath("")
 {
 }
 
@@ -40,6 +40,7 @@ LocationConfig& LocationConfig::operator=(const LocationConfig& other)
 		_cgiExtension = other._cgiExtension;
 		_cgiPath = other._cgiPath;
 		_redirect = other._redirect;
+		_uploadPath = other._uploadPath;
 	}
 	return *this;
 }
@@ -211,6 +212,7 @@ void LocationConfig::print() const
 	std::cout << "    Root: " << _root << "\n";
 	std::cout << "    Path: " << _path << "\n";
 	std::cout << "    Index: " << _index << "\n";
+	std::cout << "    upload_path : " << _uploadPath << "\n";
 	std::cout << "    return: " << _redirect.first <<  " :  " <<  _redirect.second << "\n";
 	std::cout << "    Autoindex: " << (_autoindex ? "on" : "off") << "\n";
 	std::cout << "    Allowed Methods: ";

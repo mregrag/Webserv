@@ -59,7 +59,7 @@
 <body>
 	<div class="container">
 		<h2>Create file.txt on the server</h2>
-		<form action="../cgi-bin/create_file.py" method="post">   <!-- this button has vars like action and method -->
+		<form action="/" method="POST">   <!-- this button has vars like action and method -->
 			<label for="filename">File Name :</label>
 			<input type="text" id="filename" name="filename" required>
 			<br>
@@ -70,6 +70,5 @@
 		</form>
 	</div>
 </body>
-<script src="confetti.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script>
 </html>

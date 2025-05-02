@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/18 17:17:40 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/22 00:43:17 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/01 18:59:00 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -278,4 +278,133 @@ size_t Utils::stringToSizeT(const std::string& str)
 	if (iss >> remaining) 
 		throw std::invalid_argument("Extra characters after number: " + str);
 	return (result);
+}
+bool Utils::isValidMethodChar(char c)
+{
+    return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+           c == '!' || c == '#' || c == '$' || c == '%' || c == '&' ||
+           c == '\'' || c == '*' || c == '+' || c == '-' || c == '.' ||
+           c == '^' || c == '_' || c == '`' || c == '|' || c == '~';
+}
+
+bool Utils::isValidMethodToken(const std::string& method)
+{
+    for (size_t i = 0; i < method.size(); ++i) {
+        char c = method[i];
+        bool is_valid = (c >= 'A' && c <= 'Z') ||
+                        (c >= '0' && c <= '9') ||
+                        c == '!' || c == '#' || c == '$' || c == '%' || c == '&' ||
+                        c == '\'' || c == '*' || c == '+' || c == '-' || c == '.' ||
+                        c == '^' || c == '_' || c == '`' || c == '|' || c == '~';
+        if (!is_valid) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+bool Utils::isValidVersion(const std::string& version)
+{
+        // Check basic format: HTTP/[0-1].[0-1]
+        if (version.size() < 8 || version.substr(0, 5) != "HTTP/" || version[6] != '.') {
+            return false;
+        }
+        char major = version[5];
+        char minor = version[7];
+        if (version.size() != 8 || major < '0' || major > '1' || minor < '0' || minor > '1') {
+            return false;
+        }
+        return true;
+    }
+
+    // Check supported HTTP version
+    bool isSupportedVersion(const std::string& version) {
+        return version == "HTTP/1.1"; // Optionally add "HTTP/1.0"
+    }
+
+
+size_t Utils::skipLeadingWhitespace(const std::string& str)
+{
+	size_t pos = 0;
+	while (pos < str.size() && (str[pos] == ' ' || str[pos] == '\t')) 
+		++pos;
+	return pos;
+}
+
+bool Utils::isValidUri(const std::string& uri)
+{
+    for (size_t i = 0; i < uri.size(); ++i) 
+        if (!std::isprint(static_cast<unsigned char>(uri[i]))) 
+            return false;
+    return true;
+}
+
+bool Utils::isSupportedMethod(const std::string& method)
+{
+    return method == "GET" || method == "POST" || method == "DELETE";
+}
+
+// Validate HTTP header key as a token per RFC 7230 (tchar characters)
+bool Utils::isValidHeaderKey(const std::string& key) 
+{
+	// Key must not be empty
+	if (key.empty()) {
+		return false;
+	}
+
+	// Check each character against tchar
+	for (size_t i = 0; i < key.size(); ++i) {
+		char c = key[i];
+		bool is_valid = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+			(c >= '0' && c <= '9') || c == '!' || c == '#' ||
+			c == '$' || c == '%' || c == '&' || c == '\'' ||
+			c == '*' || c == '+' || c == '-' || c == '.' ||
+			c == '^' || c == '_' || c == '`' || c == '|' ||
+			c == '~';
+		if (!is_valid) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool Utils::isValidHeaderKeyChar(char c) 
+{
+    return std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' ||
+           c == '!' || c == '#' || c == '$' || c == '%' || c == '&' || c == '\'' ||
+           c == '*' || c == '+' || c == '.' || c == '^' || c == '`' || c == '|' || c == '~';
+}
+bool Utils::isValidHeaderValueChar(char c) 
+{
+	    return std::isprint(static_cast<unsigned char>(c)) || c == '\t';
+}
+
+// Validate HTTP header value per RFC 7230 (field-value)
+bool Utils::isValidHeaderValue(const std::string& value) 
+{
+	// Empty values are allowed in some cases (e.g., Host: )
+	if (value.empty()) {
+		return true;
+	}
+
+	// Check each character against field-vchar (VCHAR) and SP/HTAB
+	for (size_t i = 0; i < value.size(); ++i) {
+		char c = value[i];
+		// Allow VCHAR (ASCII 33-126), SP (space), HTAB (tab)
+		if (c != ' ' && c != '\t' && (c < 33 || c > 126)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+std::string Utils::extractAttribute(const std::string& headers, const std::string& key) {
+    std::string search = key + "=\"";
+    size_t start = headers.find(search);
+    if (start == std::string::npos) return "";
+    start += search.length();
+    size_t end = headers.find("\"", start);
+    if (end == std::string::npos) return "";
+    return headers.substr(start, end - start);
 }
