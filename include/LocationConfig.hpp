@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 16:54:43 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/29 16:02:18 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/06 22:03:21 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -59,10 +59,7 @@ class LocationConfig
 		void print() const;
 		std::vector<std::string> split(const std::string& str, char delimiter);
 
-		bool if_location_has_cgi() const {
-			//TODO verify also if the file extention have a _cgiExtension
-			return !_cgiExtension.empty() && !_cgiPath.empty();
-		}
+		bool hasCgi() const;
 		
 	private:
 		std::string _root;

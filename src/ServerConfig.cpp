@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:27:45 by mregrag           #+#    #+#             */
-/*   Updated: 2025/05/02 16:56:13 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/05 01:05:56 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -38,6 +38,7 @@ ServerConfig& ServerConfig::operator=(const ServerConfig& other)
 		_ports = other._ports;
 		_serverName = other._serverName;
 		_clientMaxBodySize = other._clientMaxBodySize;
+		_clientBodyTmpPath = other._clientBodyTmpPath;
 		_errorPages = other._errorPages;
 		_locations = other._locations;
 		_server_fds = other._server_fds;
@@ -104,6 +105,17 @@ void ServerConfig::setServerName(const std::string& name)
 void ServerConfig::setClientMaxBodySize(const std::string& size)
 {
 	_clientMaxBodySize = Utils::stringToSizeT(size);
+}
+
+
+void ServerConfig::setClientBodyTmpPath(const std::string& path)
+{
+	_clientBodyTmpPath = path;
+}
+
+std::string  ServerConfig::getClientBodyTmpPath() const
+{
+	return (_clientBodyTmpPath);
 }
 
 void ServerConfig::setErrorPage(int code, const std::string& path)
@@ -242,6 +254,7 @@ void ServerConfig::print() const
 
 	std::cout << "Server Name: " << _serverName << "\n";
 	std::cout << "Client Max Body Size: " << _clientMaxBodySize << " bytes\n";
+	std::cout << "_clientBodyTmpPath : " << _clientBodyTmpPath << "\n";
 
 	std::cout << "Error Pages:\n";
 	for (std::map<int, std::string>::const_iterator it = _errorPages.begin(); it != _errorPages.end(); ++it)

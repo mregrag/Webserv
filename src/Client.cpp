@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 17:36:21 by mregrag           #+#    #+#             */
-/*   Updated: 2025/05/03 00:15:44 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/03 17:10:33 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -47,17 +47,15 @@ void Client::handleRead()
 			_readBuffer.append(buffer, bytesRead);
 			_request->parse(_readBuffer);
 		}
+		
 		else if (bytesRead == 0) 
 			throw std::runtime_error("Client closed connection");
 		else if (bytesRead < 0)
-		{
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-				break; // All data read
-			throw std::runtime_error("Error reading from socket: " + std::string(strerror(errno)));
-		}
+			break;
+		if (_request->getState() == HTTPRequest::FINISH)
+			break;
 	}
 }
-
 
 void Client::handleWrite() 
 {
@@ -69,7 +67,6 @@ void Client::handleWrite()
 			throw std::runtime_error("Client Close connection");
 		LOG_DEBUG("Response sent to client "  + Utils::toString( this->getFd()));
 	}
-
 
 	int bytesSent = -1;
 	if (this->getFd() != -1)

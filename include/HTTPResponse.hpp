@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/10 16:10:25 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/24 21:37:27 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/05 05:05:40 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,6 +16,7 @@
 #include "Client.hpp"
 #include "LocationConfig.hpp"
 #include "HTTPRequest.hpp"
+#include "CGIHandler.hpp"
 #include <string>
 #include <map>
 
@@ -81,10 +82,11 @@ class HTTPResponse
 		std::string _body;
 		std::string _response;
 		response_state	_state;
-
 		// new
 		LocationConfig		_matched_location;
 		bool			_hasMatchedLocation;
+
+		CGIHandler _cgi;
 };
 
 #endif // HTTPRESPONSE_HPP

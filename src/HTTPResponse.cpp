@@ -169,7 +169,7 @@ void HTTPResponse::handleGet(LocationConfig location)
 	{
 		if (get_resource_type(resource))// true if it is a regular file
 		{
-			if (location.if_location_has_cgi())
+			if (location.hasCgi())
 			{
 				// code of cgi
 			}
@@ -182,7 +182,7 @@ void HTTPResponse::handleGet(LocationConfig location)
 			{
 				if (is_dir_has_index_files(resource, location.getIndex()))
 				{
-					if (location.if_location_has_cgi())
+					if (location.hasCgi())
 					{
 						// run the cgi
 					}

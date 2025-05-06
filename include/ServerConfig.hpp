@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/24 21:24:19 by mregrag           #+#    #+#             */
-/*   Updated: 2025/05/02 16:55:31 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/05 00:58:37 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,6 +37,7 @@ class ServerConfig
 		std::vector<uint16_t> _ports;
 		std::string _serverName;
 		size_t _clientMaxBodySize;
+		std::string _clientBodyTmpPath;
 		std::map<int, std::string> _errorPages;
 		std::map<std::string, LocationConfig>   _locations;
 		std::vector<struct sockaddr_in> _server_addresses;
@@ -55,6 +56,7 @@ class ServerConfig
 		void setPort(const std::string& port);
 		void setServerName(const std::string& name);
 		void setClientMaxBodySize(const std::string& size);
+		void setClientBodyTmpPath(const std::string& path);
 		void setErrorPage(int code, const std::string& path);
 		void addLocation(const std::string& path, const LocationConfig& location);
 		void setFd(int fd);
@@ -63,6 +65,7 @@ class ServerConfig
 		int getFd(size_t index) const;
 		const std::vector<int>& getFds() const;
 		size_t getClientMaxBodySize() const;
+		std::string  getClientBodyTmpPath() const;
 		const std::string& getServerName() const;
 		const std::string& getHost() const;
 		const std::map<int, std::string>& getErrorPages() const;

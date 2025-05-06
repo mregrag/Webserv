@@ -6,7 +6,7 @@
 /*   By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:29:36 by mregrag           #+#    #+#             */
-/*   Updated: 2025/05/02 16:53:40 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/05 00:54:10 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -293,6 +293,8 @@ void ConfigParser::parseServerBlock(const std::string& block)
 				server.setServerName(value);
 			else if (key == "client_max_body_size")
 				server.setClientMaxBodySize(value);
+			else if (key == "client_body_temp_path")
+				server.setClientBodyTmpPath(value);
 			else if (key == "error_page") 
 			{
 				std::vector<std::string> tokens = split(value, ' ');

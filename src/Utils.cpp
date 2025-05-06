@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/18 17:17:40 by mregrag           #+#    #+#             */
-/*   Updated: 2025/05/01 18:59:00 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/04 18:14:33 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -289,39 +289,38 @@ bool Utils::isValidMethodChar(char c)
 
 bool Utils::isValidMethodToken(const std::string& method)
 {
-    for (size_t i = 0; i < method.size(); ++i) {
-        char c = method[i];
-        bool is_valid = (c >= 'A' && c <= 'Z') ||
-                        (c >= '0' && c <= '9') ||
-                        c == '!' || c == '#' || c == '$' || c == '%' || c == '&' ||
-                        c == '\'' || c == '*' || c == '+' || c == '-' || c == '.' ||
-                        c == '^' || c == '_' || c == '`' || c == '|' || c == '~';
-        if (!is_valid) {
-            return false;
-        }
-    }
-    return true;
-}
+	if (method.empty())
+		return false;
 
+	// RFC 7230 defines tokens as consisting of visible ASCII characters
+	// except for delimiters (like spaces, tabs, etc.)
+	for (size_t i = 0; i < method.length(); i++) {
+		char c = method[i];
+		// Valid token characters are between 33-126 ASCII
+		// excluding delimiters like "(),/:;<=>?@[\]{}"
+		if (c <= 32 || c >= 127 || 
+				c == '(' || c == ')' || c == '<' || c == '>' || 
+				c == '@' || c == ',' || c == ';' || c == ':' || 
+				c == '\\' || c == '"' || c == '/' || c == '[' || 
+				c == ']' || c == '?' || c == '=' || c == '{' || 
+				c == '}' || c == ' ' || c == '\t')
+			return false;
+	}
+	return true;
+}
 
 bool Utils::isValidVersion(const std::string& version)
 {
-        // Check basic format: HTTP/[0-1].[0-1]
-        if (version.size() < 8 || version.substr(0, 5) != "HTTP/" || version[6] != '.') {
-            return false;
-        }
-        char major = version[5];
-        char minor = version[7];
-        if (version.size() != 8 || major < '0' || major > '1' || minor < '0' || minor > '1') {
-            return false;
-        }
-        return true;
-    }
+	// Check basic format: HTTP/[0-1].[0-1]
+	if (version.size() < 8 || version.substr(0, 5) != "HTTP/" || version[6] != '.') 
+		return false;
 
-    // Check supported HTTP version
-    bool isSupportedVersion(const std::string& version) {
-        return version == "HTTP/1.1"; // Optionally add "HTTP/1.0"
-    }
+	char major = version[5];
+	char minor = version[7];
+	if (version.size() != 8 || major < '0' || major > '1' || minor < '0' || minor > '1') 
+		return false;
+	return true;
+}
 
 
 size_t Utils::skipLeadingWhitespace(const std::string& str)
@@ -342,7 +341,7 @@ bool Utils::isValidUri(const std::string& uri)
 
 bool Utils::isSupportedMethod(const std::string& method)
 {
-    return method == "GET" || method == "POST" || method == "DELETE";
+	return (method == "GET" || method == "POST" || method == "DELETE");
 }
 
 // Validate HTTP header key as a token per RFC 7230 (tchar characters)

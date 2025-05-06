@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/04 17:26:11 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/29 16:07:00 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/06 22:01:54 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -204,6 +204,11 @@ const std::string& LocationConfig::getCgiExtension() const
 const std::string& LocationConfig::getCgiPath() const
 {
 	return _cgiPath;
+}
+
+bool LocationConfig::hasCgi() const 
+{
+	return (!_cgiExtension.empty() && !_cgiPath.empty());
 }
 
 void LocationConfig::print() const
