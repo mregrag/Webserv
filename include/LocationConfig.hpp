@@ -49,7 +49,7 @@ class LocationConfig
 		void setRedirect(const std::string& redirectValue);
 		const std::string& getPath() const;
 
-		bool hasRedirection() const;
+		bool is_location_have_redirection() const;
 
 		const std::string& getRedirectPath() const; 
 

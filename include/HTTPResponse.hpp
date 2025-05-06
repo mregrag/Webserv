@@ -61,7 +61,7 @@ class HTTPResponse
 		
 		
 		bool	is_req_well_formed();
-		const std::string get_requested_resource(LocationConfig location);
+		const std::string get_requested_resource(const LocationConfig& location);
 		bool get_resource_type(std::string resource);
 		bool is_uri_has_backslash_in_end(const std::string& resource);
 		bool is_dir_has_index_files(const std::string& resource, const std::string& index);
@@ -71,6 +71,11 @@ class HTTPResponse
 		void buildSuccessResponse(const std::string& fullPath);
 		void buildAutoIndexResponse(const std::vector<std::string>& list, const std::string& path);
 		void buildErrorResponse(int statusCode, const std::string& message = "");
+		void buildRediractionResponse(int code, const std::string& message, const std::string& newLocation);
+
+
+
+		void print();
 
 		Client* _client;
 		HTTPRequest* _request;

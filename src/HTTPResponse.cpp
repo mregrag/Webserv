@@ -2,8 +2,6 @@
 #include "../include/Utils.hpp"
 #include "../include/Logger.hpp"
 #include "../include/webserver.hpp"
-#include <cstdlib>
-#include <iostream>
 
 HTTPResponse::HTTPResponse(Client* client) : _client(client), _request(_client->getRequest()), _statusCode(200), _statusMessage("OK"), _body(""), _state(INIT)
 {
@@ -88,34 +86,27 @@ std::string HTTPResponse::getResponse() const
 	return _response;
 }
 
-void HTTPResponse::handlePost() 
-{
-	std::string body = "Resource created successfully"; // Example body
-	std::string contentLength = Utils::toString(body.length());
-
-	_response = "HTTP/1.1 201 Created\r\n";
-	_response += "Content-Type: text/plain\r\n";
-	_response += "Content-Length: " + contentLength + "\r\n";
-	_response += "\r\n"; // End of headers
-	_response += body;
-
-	setState(FINISH);
-}
+void HTTPResponse::handlePost() {}
 void HTTPResponse::handleDelete() {}
 
 int HTTPResponse::buildResponse()
-{	
-
+{
 	// don t forget to handel non-finish request if you have to.
 	if (is_req_well_formed())
 		return -1;
 	get_matched_location_for_request_uri(_request->getPath());
+	
 	if (!_hasMatchedLocation)
 	{
 		buildErrorResponse(404 ,"Not Found");
 		return -1;
 	}
-
+	if (_matched_location.is_location_have_redirection())
+	{
+		buildRediractionResponse(_matched_location.getRedirectCode() 
+			, "Moved Permanently", _matched_location.getRedirectPath());
+		return 1;
+	}
 	if (!_matched_location.isMethodAllowed(_request->getMethod()))
 	{
 		buildErrorResponse(405, "Method Not Allowed");
@@ -131,34 +122,33 @@ int HTTPResponse::buildResponse()
 	return 1;
 }
 
+ 
 void HTTPResponse::get_matched_location_for_request_uri(const std::string& requestUri) 
 {
-	std::string best_match;
-	std::map<std::string, LocationConfig> map_locations = _client->getServer()->getLocations();
+    std::cout << requestUri << std::endl;
+    std::string    uri = requestUri[requestUri.size() - 1] == '/' ? requestUri : (requestUri + "/");
+    std::map<std::string, LocationConfig> map_locations = _client->getServer()->getLocations();
+    std::vector<LocationConfig> best_matches;
+    size_t longestMatchLength = 0;
 
-	for (std::map<std::string, LocationConfig>::iterator it = map_locations.begin()
-		; it != map_locations.end();it++)
-	{
-		if (it->first == requestUri)
-		{
-			_hasMatchedLocation = true;
-			_matched_location = it->second ;
-			return ;
-		}
-		if (requestUri.find(it->first) == 0)// /foo /foobar
-		{
-			if (requestUri.size() == it->first.size() || requestUri[it->first.size() - 1] == '/')
-			{
-				if (best_match.size() < it->first.size())
-				{
-					best_match = it->first;
-					_hasMatchedLocation = true;
-					_matched_location = it->second;
-				}
-			}
-		}
-	}
-	// _matched_location.print();
+    for (std::map<std::string, LocationConfig>::iterator it = map_locations.begin()
+    ; it != map_locations.end();it++)
+    {
+        std::string path = it->first;
+        path = path[path.size() - 1] == '/' ? path : (path + "/");
+        if (path == uri)
+        {
+            _hasMatchedLocation = true;
+            _matched_location = it->second ;
+            return ;
+        }
+        if ( uri.compare(0, path.size(), path) == 0 && longestMatchLength < path.size())
+        {
+            _matched_location = it->second;
+            _hasMatchedLocation = true;
+            longestMatchLength = path.size();
+        }
+    }
 }
 
 void HTTPResponse::handleGet(LocationConfig location)
@@ -224,6 +214,8 @@ void HTTPResponse::handleGet(LocationConfig location)
 			{
 				// make a 301 redirection to request
 				// uri with “/” addeed at the end
+				std::cout << "in\n";
+				buildRediractionResponse(301, "Moved Permanently",  _request->getPath() + "/");
 			}
 		}
 	}
@@ -278,19 +270,27 @@ bool HTTPResponse::is_req_well_formed()
 	return false;
 }
 
-const std::string HTTPResponse::get_requested_resource(LocationConfig location)
+ const std::string HTTPResponse::get_requested_resource(const LocationConfig& location)
 {
-	std::string	root = location.getRoot() ;
-	std::string	path = _request->getPath();
-	size_t	a = 0;
+    std::string root = location.getRoot();
+    std::string loc_path = location.getPath();
+    std::string path = _request->getPath();
 
-	for (size_t i = 0; i < path.size(); i++)
-	{
-		if (path[i] == '/' && i + 1 < path.size())
-			a = i;
-	}
-	path = path.substr(a + 1, path.size());
-	return root + path;
+    if (!loc_path.empty() && loc_path[loc_path.size() - 1] == '/')
+        loc_path.erase(loc_path.size() - 1, 1);
+
+    if (path.size() >= loc_path.size())
+        path.erase(0, loc_path.size());
+    else
+        path.clear();
+
+    if (!root.empty() && !path.empty() &&
+        root[root.size() - 1] == '/' && path[0] == '/')
+        path.erase(0, 1);
+
+    std::string fullPath = root + path;
+
+    return fullPath;
 }
 
 bool HTTPResponse::get_resource_type(std::string resource)
@@ -333,6 +333,7 @@ std::string HTTPResponse::readFileContent(const std::string& filePath) const
 	return buffer.str();
 }
 
+#include <sstream>
 void  HTTPResponse::buildSuccessResponse(const std::string& fullPath)
 {
 	std::string fileContent = readFileContent(fullPath);
@@ -402,4 +403,60 @@ void  HTTPResponse::buildErrorResponse(int statusCode, const std::string& messag
 	setBody(fileContent);
 	
 	this->setResponse();
+}
+
+void HTTPResponse::buildRediractionResponse(int code, const std::string& message , const std::string& newLocation)
+{
+	std::stringstream	ss;
+	setStatusCode(code);
+	setStatusMessage(message);
+	setProtocol("HTTP/1.1");
+
+	setHeader("Location", newLocation);// maybe modified
+	setHeader("Content-Type", "text/html");
+	setHeader("Connection", "close");
+	
+	ss << "<!DOCTYPE html>" ;
+	ss << "<html>" ;
+	ss << "<head><title>301 Moved Permanently</title></head>" ;
+	ss << "<body>" ;
+	ss << "<h1>Moved Permanently</h1>" ;
+	ss << "<p>The document has moved <a href=\"" ;
+
+	ss << _request->getPath() + "/" << "\">here</a>.</p>" ;
+	
+	ss << "</body>" ;
+	ss << "</html>" ;
+	setBody(ss.str());
+	setResponse();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+void	HTTPResponse::print()
+{
+	std::cout << "-----------------------------------\n";
+	std::cout << "HTTP Response: \n";
+	
+	std::cout << "status code :" << _statusCode << std::endl;
+	std::cout << "status message: " << _statusMessage << std::endl;
+	std::cout << "protocol: " << _protocol << std::endl;
+	for (std::map<std::string, std::string>::iterator it = _headers.begin()
+		; it != _headers.end(); ++it )
+	{
+		std::cout << it->first << " : " << it->second << std::endl;
+	}
+	std::cout << "body: \n";
+	std::cout << _body << std::endl;
+	std::cout << "-----------------------------------\n";
 }

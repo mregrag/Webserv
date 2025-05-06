@@ -271,7 +271,7 @@ void HTTPRequest::findLocation()
 	_finalLocation = _matchedLocation;
 
 	// Follow redirects if any
-	if (_matchedLocation && _matchedLocation->hasRedirection()) 
+	if (_matchedLocation && _matchedLocation->is_location_have_redirection()) 
 	{
 		_finalLocation = findLocationByPath(_matchedLocation->getRedirectPath());
 	}

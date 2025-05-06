@@ -181,7 +181,7 @@ bool LocationConfig::isMethodAllowed(const std::string& method) const
 }
 
 
-bool LocationConfig::hasRedirection() const 
+bool LocationConfig::is_location_have_redirection() const 
 {
 	return !_redirect.second.empty();
 }
