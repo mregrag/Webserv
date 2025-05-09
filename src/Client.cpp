@@ -46,6 +46,8 @@ void Client::handleRead()
 			buffer[bytesRead] = '\0';
 			_readBuffer.append(buffer, bytesRead);
 			_request->parse(_readBuffer);
+			// debug
+			_request->debugPrintRequest();
 		}
 		else if (bytesRead == 0) 
 			throw std::runtime_error("Client closed connection");

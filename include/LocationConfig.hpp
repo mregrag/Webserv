@@ -72,7 +72,7 @@ class LocationConfig
 		std::vector<std::string> _allowedMethods;
 		std::string _cgiExtension;
 		std::string _cgiPath;
-		std::string _uploadPath;
+		std::string _uploadPath ;
 		std::pair<int, std::string> _redirect;
 };
 

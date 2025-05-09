@@ -69,7 +69,7 @@ void HTTPResponse::setBody(const std::string& body)
 	setHeader("Content-Length", oss.str());
 }
 
-void HTTPResponse::setResponse(/*const std::string& response*/) 
+void HTTPResponse::setResponse() 
 {
 	std::ostringstream response;
 	response << _protocol << " " << _statusCode << " " << _statusMessage << "\r\n";
@@ -86,16 +86,121 @@ std::string HTTPResponse::getResponse() const
 	return _response;
 }
 
-void HTTPResponse::handlePost() {}
-void HTTPResponse::handleDelete() {}
+void HTTPResponse::handlePost()
+{
+	if (_matched_location.getUploadPath() != "")
+	{
+		// upload
+		std::string	resource = "./www/upload/" + _request->getUri();
+		std::ofstream file(resource.c_str());
+		if (!file)
+		{
+			// error creating file
+			return ;
+		}
+		file << _request->getBody();
+
+		setStatusCode(201);
+		setStatusMessage("Created");
+		setProtocol("HTTP/1.1");
+	}
+	else
+	{
+		std::string	resource = get_requested_resource(_matched_location);
+		if (access(resource.c_str(), F_OK) == 0)
+		{
+			if (get_resource_type(resource)) // file
+			{
+				if (_matched_location.if_location_has_cgi())
+				{
+					// cgi handel
+				}
+				else
+					buildErrorResponse(403, "Forbidden");
+			}
+			else // directory
+			{
+				if (is_uri_has_backslash_in_end(resource))
+				{
+					if (is_dir_has_index_files(resource, _matched_location.getIndex()))
+					{
+						if (_matched_location.if_location_has_cgi())
+						{
+							// cgi stuff
+						}
+						else
+							buildErrorResponse(403, "Forbidden");
+					}
+					else
+						buildErrorResponse(403, "Forbidden");
+				}
+				else
+					buildRediractionResponse(301, "Moved Permanently", _request->getPath() + "/");
+			}
+		}
+		else
+			buildErrorResponse(404, "Not Found");
+	}
+}
+
+void HTTPResponse::handleDelete()
+{
+	std::string	resource = get_requested_resource(_matched_location);
+	std::cout << "requested resource = " << resource << std::endl;
+	if (access(resource.c_str(), F_OK) == 0)
+	{
+		if (get_resource_type(resource)) // file
+		{
+			if (_matched_location.if_location_has_cgi())
+			{
+				// cgi stuff
+			}
+			else
+			{
+				// unlink the file
+				unlink(resource.c_str());
+				setStatusCode(204);
+				setStatusMessage("No Content");
+				setProtocol("HTTP/1.1");
+			}
+		}
+		else //directory 
+		{
+			if ( is_uri_has_backslash_in_end(resource) )
+			{
+				if (_matched_location.if_location_has_cgi())
+				{
+					if (is_dir_has_index_files(resource, _matched_location.getIndex()))
+					{
+						// cgi stuff
+					}
+					else
+						buildErrorResponse(403, "Forbidden");
+				}
+				else
+				{
+					delete_all_folder_content(resource);
+					setStatusCode(204);
+					setStatusMessage("No Content");
+					setProtocol("HTTP/1.1");
+				}
+			}
+			else
+				buildErrorResponse(409, "Conflict");
+		}
+	}
+	else
+		buildErrorResponse(404, "Not Found");
+}
 
 int HTTPResponse::buildResponse()
 {
 	// don t forget to handel non-finish request if you have to.
 	if (is_req_well_formed())
 		return -1;
-	get_matched_location_for_request_uri(_request->getPath());
 	
+	get_matched_location_for_request_uri(_request->getPath());
+	std::cout << "matched location = " << _matched_location.getPath() << std::endl ;
 	if (!_hasMatchedLocation)
 	{
 		buildErrorResponse(404 ,"Not Found");
@@ -118,14 +223,13 @@ int HTTPResponse::buildResponse()
 		handlePost();
 	else if (_request->getMethod() == "DELETE")
 		handleDelete();
-	
+	// print();
 	return 1;
 }
 
  
 void HTTPResponse::get_matched_location_for_request_uri(const std::string& requestUri) 
 {
-    std::cout << requestUri << std::endl;
     std::string    uri = requestUri[requestUri.size() - 1] == '/' ? requestUri : (requestUri + "/");
     std::map<std::string, LocationConfig> map_locations = _client->getServer()->getLocations();
     std::vector<LocationConfig> best_matches;
@@ -154,7 +258,6 @@ void HTTPResponse::get_matched_location_for_request_uri(const std::string& reque
 void HTTPResponse::handleGet(LocationConfig location)
 {
 	std::string resource = get_requested_resource(location);
-	std::cout << "get_requested_resource: " << resource << std::endl;
 	if (access(resource.c_str(), F_OK) == 0)
 	{
 		if (get_resource_type(resource))// true if it is a regular file
@@ -214,7 +317,6 @@ void HTTPResponse::handleGet(LocationConfig location)
 			{
 				// make a 301 redirection to request
 				// uri with “/” addeed at the end
-				std::cout << "in\n";
 				buildRediractionResponse(301, "Moved Permanently",  _request->getPath() + "/");
 			}
 		}
@@ -314,13 +416,13 @@ bool HTTPResponse::is_uri_has_backslash_in_end(const std::string& resource)
 bool HTTPResponse::is_dir_has_index_files(const std::string& resource, const std::string& index)
 {
 	//TODO this is not good
+	
 	std::string	fullPath = resource + index;
-	if (access(fullPath.c_str(), F_OK) == 0 && !index.empty())
+	if (access(fullPath.c_str(), F_OK) == 0 && !_matched_location.getIndex().empty())
 		return true;
 	return false;
 }
 
-//
 
 std::string HTTPResponse::readFileContent(const std::string& filePath) const 
 {
@@ -333,7 +435,6 @@ std::string HTTPResponse::readFileContent(const std::string& filePath) const
 	return buffer.str();
 }
 
-#include <sstream>
 void  HTTPResponse::buildSuccessResponse(const std::string& fullPath)
 {
 	std::string fileContent = readFileContent(fullPath);
@@ -345,13 +446,8 @@ void  HTTPResponse::buildSuccessResponse(const std::string& fullPath)
 	setHeader("Content-Type", Utils::getMimeType(fullPath));
 	setHeader("Connection", "keep-alive"); // keep-alive
 	setBody(fileContent);
-	// response << "HTTP/1.1 " << _statusCode << " " << _statusMessage << "\r\n"
-	// 	<< "Content-Length: " << fileContent.length() << "\r\n"
-	// 	<< "Content-Type: " << Utils::getMimeType(fullPath) << "\r\n"
-	// 	<< "Connection: close\r\n";
 
-	// response << "\r\n" << fileContent;
-	this->setResponse();
+	setResponse();
 }
 
 void HTTPResponse::buildAutoIndexResponse(const std::vector<std::string>& list, const std::string& path) 
@@ -390,8 +486,10 @@ void  HTTPResponse::buildErrorResponse(int statusCode, const std::string& messag
 	const std::map<int, std::string>& error_pages = config->getErrorPages();
 
 	std::map<int, std::string>::const_iterator it = error_pages.find(statusCode);
-	std::string file_name = it->second;
 
+	std::string file_name = it->second;
+	std::cout << "file = " << file_name << std::endl;
+	std::cout << "code_error = " << statusCode << std::endl;
 	std::string fileContent = readFileContent(file_name);
 	std::string statusMsg = message.empty() ? "Error" : message;
 	
@@ -433,12 +531,40 @@ void HTTPResponse::buildRediractionResponse(int code, const std::string& message
 
 
 
+std::string	append_backslash(const std::string& dir, const std::string& file)
+{
+	if (dir.size() != 0 && dir[dir.size() - 1] == '/')
+		return dir + file;
+	else
+		return dir + "/" + file;
+}
 
-
-
-
-
-
+void HTTPResponse::delete_all_folder_content(const std::string &resource)
+{
+	// list the directory content
+	// we access the content one by one
+	// if it is a file unlink it
+	// if it is a diractory delete_all_folder_content recursion
+	// delete the directory it self
+	DIR	*dir = opendir(resource.c_str());
+	if (dir == NULL)
+	{
+		LOG_ERROR("error opendir");
+		return ;
+	}
+	struct dirent*	entry = readdir(dir);
+	while ((entry = readdir(dir)) != NULL)
+	{
+		if (std::string(entry->d_name) == "." || std::string(entry->d_name) == "..")
+			continue ;
+		std::string	new_resource = append_backslash(resource, std::string(entry->d_name));
+		if (get_resource_type(new_resource))
+			unlink(new_resource.c_str());
+		else
+			delete_all_folder_content(new_resource);
+	}
+	rmdir(resource.c_str());
+}
 
 
 

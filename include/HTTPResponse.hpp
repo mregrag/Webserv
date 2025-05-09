@@ -72,7 +72,7 @@ class HTTPResponse
 		void buildAutoIndexResponse(const std::vector<std::string>& list, const std::string& path);
 		void buildErrorResponse(int statusCode, const std::string& message = "");
 		void buildRediractionResponse(int code, const std::string& message, const std::string& newLocation);
-
+		void delete_all_folder_content(const std::string &resource);
 
 
 		void print();
