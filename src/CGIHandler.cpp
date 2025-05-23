@@ -32,7 +32,6 @@ void	CGI::_initTmpFile(void)
     int	i = 0;
     std::string	res;
 
-    // usleep(1000);
     name = "/tmp/webserv_";
     do
     {
@@ -78,7 +77,6 @@ void	CGI::init(void)
 {
     LOG_DEBUG("Initing cgi");
 
-    usleep(500);
     _initTmpFile();
     _initArgs();
     _initEnv();
@@ -94,10 +92,8 @@ void	CGI::execute(void)
 
     if (_pid != 0)
     {
-        _request.pids.push_back(_pid);
-        
         LOG_INFO("================== Executing cgi with ==================");
-        std::cout << *this << std::endl;
+        // std::cout << *this << std::endl;
         LOG_INFO("========================================================");
     }
 
@@ -120,6 +116,8 @@ void	CGI::execute(void)
         LOG_ERROR("execve failed");
         exit(EXIT_FAILURE);
     }
+
+    // sleep(1);
 
     _request.pid = _pid;
 }

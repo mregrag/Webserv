@@ -140,10 +140,23 @@ void ServerManager::handleEvent(const epoll_event& event)
 				if (checkClientTimeouts())
 				{
 					std::remove(client->getRequest()->filename.c_str());
-					for (int i = 0; i < client->getRequest()->pids.size(); i++)
-						kill(client->getRequest()->pids[i], SIGKILL);
-					client->getRequest()->pids.clear();
+					// for (int i = 0; i < client->getRequest()->pids.size(); i++)
+					kill(client->getRequest()->pid, SIGKILL);
+					// client->getRequest()->pids.clear();
+
+					client->getResponse()->appendToBody("cgi timeout");
+					client->getResponse()->setProtocol(client->getRequest()->getProtocol());
+					client->getResponse()->setStatusCode(client->getRequest()->getStatusCode());
+					client->getResponse()->setStatusMessage(Utils::getMessage(client->getRequest()->getStatusCode()));
+					client->getResponse()->setHeader("Connection", client->getResponse()->shouldCloseConnection() ? "close" : "keep-alive");
+					client->getResponse()->setHeader("Content-Type", "text/html");
+					client->getResponse()->setHeader("Content-Length", Utils::toString(client->getResponse()->getContentLength()));
+					client->getResponse()->buildHeader();
+					client->getResponse()->setState(HTTPResponse::FINISH);
+
 				}
+				else
+					return ;
 
 				// check time out
 
@@ -151,8 +164,6 @@ void ServerManager::handleEvent(const epoll_event& event)
 					// kill all proccesses
 				// else
 					// return
-
-				return ;
 
 			}
 
@@ -327,6 +338,7 @@ bool ServerManager::sendToClient(Client* client)
 			return false;
 		}
 		return true;
+		
 	}
 	if (bytesToSend == 0) 
 	{
@@ -378,8 +390,8 @@ bool ServerManager::checkClientTimeouts()
 		if ((currentTime - lastActivity) >= _clientTimeout)
 			timeoutFds.push_back(it->first);
 	}
-	for (size_t i = 0; i < timeoutFds.size(); ++i)
-		cleanupClient(timeoutFds[i], "Connection timed out");
+	// for (size_t i = 0; i < timeoutFds.size(); ++i)
+	// 	cleanupClient(timeoutFds[i], "Connection timed out");
 	if (!timeoutFds.empty())
 	{
 		LOG_INFO("Cleaned up " + Utils::toString(timeoutFds.size()) + " client(s) due to " + Utils::toString(_clientTimeout) + "s timeout");

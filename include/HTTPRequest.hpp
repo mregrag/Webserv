@@ -44,7 +44,6 @@ public:
 	int	pid;
 	std::string	filename;
 	bool	first;
-	std::vector<int>	pids;
 	//?
 
 	HTTPRequest(ServerConfig* server);
