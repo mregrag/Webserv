@@ -117,7 +117,7 @@ void	CGI::execute(void)
         exit(EXIT_FAILURE);
     }
 
-    // sleep(1);
+    sleep(1);
 
     _request.pid = _pid;
 }
