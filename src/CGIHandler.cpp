@@ -119,7 +119,7 @@ void	CGI::execute(void)
         exit(EXIT_FAILURE);
     }
 
-    usleep(500);
+    // usleep(500);
 
     _request.pid = _pid;
 }

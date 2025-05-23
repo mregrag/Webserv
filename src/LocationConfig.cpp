@@ -236,8 +236,13 @@ bool LocationConfig::hasRedirection() const
 
 bool LocationConfig::hasCgi() const 
 {
+	// return (true);
+	if (_cgiExtension == "")
+		return (false);
+	if (_cgiPath == "")
+		return (false);
 	return (true);
-	return (!_cgiExtension.empty() && !_cgiPath.empty());
+	// return (!(_cgiExtension == "") && !(_cgiPath == ""));
 }
 
 bool LocationConfig::allowsUploads() const

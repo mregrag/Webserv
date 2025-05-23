@@ -167,7 +167,7 @@ bool HTTPRequest::isComplete() const
 
 bool HTTPRequest::isCgiRequest()
 {
-	if (_location->hasCgi())
+	if (_location && _location->hasCgi())
 		return (true);
 	return (false);
 }

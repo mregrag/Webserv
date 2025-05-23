@@ -13,8 +13,8 @@
 
 NAME        = Webserv
 
-CC          = c++ -g3
-# CFLAGS      = -fsanitize=address
+CC          = c++
+CFLAGS      = -fsanitize=address -g3
 RM          = rm -f
 
 HPP     = $(shell find ./include -name '*.hpp')

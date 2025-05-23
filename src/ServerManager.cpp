@@ -138,7 +138,7 @@ void ServerManager::handleEvent(const epoll_event& event)
 			{
 				// LOG_INFO("cgi still working");
 
-				usleep(500);
+				// usleep(500);
 
 				if (checkClientTimeouts())
 				{
@@ -334,9 +334,7 @@ bool ServerManager::sendToClient(Client* client)
 		// std::cout << buffer << std::endl;
 		// std::cout << "a" << std::endl;
 
-		// std::cout << "before send" << std::endl;
 		ssize_t bytesSent = send(client->getFd(), buffer, bytesToSend, MSG_NOSIGNAL);
-		std::cout << "after send: " << client->getFd() << std::endl;
 		if (bytesSent <= 0)
 		{
 			LOG_ERROR("Error sending to client fd " + Utils::toString(client->getFd()) + ": " + std::string(std::strerror(errno)));
