@@ -143,6 +143,7 @@ void ServerManager::handleEvent(const epoll_event& event)
 				if (checkClientTimeouts())
 				{
 					std::remove(client->getRequest()->filename.c_str());
+					
 					// for (int i = 0; i < client->getRequest()->pids.size(); i++)
 					kill(client->getRequest()->pid, SIGKILL);
 					// client->getRequest()->pids.clear();
@@ -360,7 +361,7 @@ bool ServerManager::sendToClient(Client* client)
 			return false;
 		}
 
-		LOG_DEBUG("Keeping connection alive for client fd " + Utils::toString(client->getFd())); //?
+		// LOG_DEBUG("Keeping connection alive for client fd " + Utils::toString(client->getFd())); //?
 
 		return true;
 	}
@@ -393,8 +394,8 @@ bool ServerManager::checkClientTimeouts()
 		if ((currentTime - lastActivity) >= _clientTimeout)
 			timeoutFds.push_back(it->first);
 	}
-	// for (size_t i = 0; i < timeoutFds.size(); ++i)
-	// 	cleanupClient(timeoutFds[i], "Connection timed out");
+	for (size_t i = 0; i < timeoutFds.size(); ++i)
+		cleanupClient(timeoutFds[i], "Connection timed out");
 	if (!timeoutFds.empty())
 	{
 		LOG_INFO("Cleaned up " + Utils::toString(timeoutFds.size()) + " client(s) due to " + Utils::toString(_clientTimeout) + "s timeout");

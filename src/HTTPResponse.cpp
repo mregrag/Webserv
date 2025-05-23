@@ -234,7 +234,7 @@ void HTTPResponse::handleGet()
 		buildErrorResponse(404);
 		return;
 	}
-	else if (_request->isCgiRequest()) //?
+	else if (_request->isCgiRequest())
 	{
 		handleCGIRequest();
 	}

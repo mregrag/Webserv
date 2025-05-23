@@ -18,7 +18,7 @@ Logger& Logger::getInstance()
     return instance;
 }
 
-Logger::Logger() : _currentLevel(INFO), _colorsEnabled(false)
+Logger::Logger() : _currentLevel(INFO), _colorsEnabled(true)
 {
 }
 

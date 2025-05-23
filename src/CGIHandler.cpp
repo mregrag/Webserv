@@ -6,7 +6,7 @@ CGI::CGI(HTTPRequest &request)
     : _pid(-1), _requestBodyFileFd(-1), _tmpFileFd(-1), _request(request),
     _args(NULL), _env(NULL)
 {
-    LOG_INFO("Cgi constructed");
+    // LOG_INFO("Cgi constructed");
 }
 
 CGI::~CGI(void)
@@ -25,7 +25,7 @@ CGI::~CGI(void)
 
     // request body file fd not closed
 
-    LOG_INFO("Cgi destroyed");
+    // LOG_INFO("Cgi destroyed");
 }
 
 void	CGI::_initTmpFile(void)
@@ -40,11 +40,13 @@ void	CGI::_initTmpFile(void)
         res = name + Utils::toString(i);
         i++;
     } while (access(res.c_str(), F_OK) == 0);
+
     _tmpFileFd = open(res.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0777); // for writing only
-    if (_tmpFileFd == -1)
-        LOG_ERROR("tmp file: " + res + " not created");
-    else
-        LOG_DEBUG("tmp file: " + res + " created successfully");
+
+    // if (_tmpFileFd == -1)
+    //     LOG_ERROR("tmp file: " + res + " not created");
+    // else
+    //     LOG_DEBUG("tmp file: " + res + " created successfully");
 
     _request.filename = res;
 }
@@ -60,7 +62,7 @@ void	CGI::_initEnv(void)
     _env[4] = strdup(("REQUEST_METHOD=" + _request.getMethod()).c_str());
     _env[5] = NULL;
 
-    LOG_DEBUG("Init args finished");
+    // LOG_DEBUG("Init args finished");
 }
 
 void	CGI::_initArgs(void)
@@ -72,12 +74,12 @@ void	CGI::_initArgs(void)
     _args[1] = strdup(_request.getResource().c_str());
     _args[2] = NULL;
 
-    LOG_DEBUG("Init env finished");
+    // LOG_DEBUG("Init env finished");
 }
 
 void	CGI::init(void)
 {
-    LOG_DEBUG("Initing cgi");
+    // LOG_DEBUG("Initing cgi");
 
     _initTmpFile();
     _initArgs();
@@ -92,12 +94,12 @@ void	CGI::execute(void)
     if (_pid == -1)
         return LOG_ERROR("fork failed");
 
-    if (_pid != 0)
-    {
-        LOG_INFO("================== Executing cgi with ==================");
+    // if (_pid != 0)
+    // {
+        // LOG_INFO("================== Executing cgi with ==================");
         // std::cout << *this << std::endl;
-        LOG_INFO("========================================================");
-    }
+        // LOG_INFO("========================================================");
+    // }
 
     if (_pid == 0)
     {
@@ -118,8 +120,11 @@ void	CGI::execute(void)
         LOG_ERROR("execve failed");
         exit(EXIT_FAILURE);
     }
-
-    // usleep(500);
+    else
+    {
+        usleep(100);
+        close(_tmpFileFd);
+    }
 
     _request.pid = _pid;
 }
