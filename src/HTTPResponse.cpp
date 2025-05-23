@@ -1,588 +1,379 @@
 #include "../include/HTTPResponse.hpp"
+#include "../include/CGIHandler.hpp"
+#include "../include/Client.hpp"
+#include "../include/HTTPRequest.hpp"
 #include "../include/Utils.hpp"
 #include "../include/Logger.hpp"
-#include "../include/webserver.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <errno.h>
+#include <ostream>
+#include <string>
+#include <strings.h>
+#include <sys/wait.h>
 
-HTTPResponse::HTTPResponse(Client* client) : _client(client), _request(_client->getRequest()), _statusCode(200), _statusMessage("OK"), _body(""), _state(INIT)
+HTTPResponse::HTTPResponse(HTTPRequest* request)
+	: _request(request),
+	_protocol("HTTP/1.1"),
+	_statusCode(200),
+	_statusMessage("OK"),
+	_body(""),
+	_header(""),
+	_filePath(""),
+	_fileSize(0),
+	_state(INIT)
 {
+	if (!_request)
+		throw std::runtime_error("Invalid HTTPRequest pointer in HTTPResponse constructor");
 }
 
-HTTPResponse::HTTPResponse(const HTTPResponse& rhs) 
-{
+HTTPResponse::HTTPResponse(const HTTPResponse& rhs) {
 	*this = rhs;
 }
 
-HTTPResponse::~HTTPResponse() 
-{
-}
-
-void HTTPResponse::setProtocol(const std::string& protocol)
-{
-	_protocol = protocol;
-}
-
-HTTPResponse& HTTPResponse::operator=(const HTTPResponse& rhs) 
-{
-	if (this != &rhs) 
-	{
-		_client = rhs._client;
-		_request = rhs._request;
-		_statusCode = rhs._statusCode;
+HTTPResponse& HTTPResponse::operator=(const HTTPResponse& rhs) {
+	if (this != &rhs) {
+		_request       = rhs._request;
+		_protocol      = rhs._protocol;
+		_statusCode    = rhs._statusCode;
 		_statusMessage = rhs._statusMessage;
-		_headers = rhs._headers;
-		_body = rhs._body;
-		_response = rhs._response;
+		_headers       = rhs._headers;
+		_body          = rhs._body;
+		_header        = rhs._header;
+		_filePath      = rhs._filePath;
+		_fileSize      = rhs._fileSize;
+		_state         = rhs._state;
 	}
 	return *this;
 }
 
-// Public methods
-void HTTPResponse::clear() 
-{
-	_statusCode = 200;
+HTTPResponse::~HTTPResponse() {
+	// No additional cleanup required; containers clean themselves.
+}
+
+void HTTPResponse::clear() {
+	_protocol      = "HTTP/1.1";
+	_statusCode    = 200;
 	_statusMessage = "OK";
 	_headers.clear();
 	_body.clear();
-	_response.clear();
+	_header.clear();
+	_filePath.clear();
+	_fileSize      = 0;
+	_state         = INIT;
 }
 
-void HTTPResponse::setStatusCode(int code) 
-{
+void HTTPResponse::setProtocol(const std::string& protocol) {
+	_protocol = protocol;
+}
+
+void HTTPResponse::setStatusCode(int code) {
 	_statusCode = code;
 }
 
-void HTTPResponse::setStatusMessage(const std::string& message) 
-{
+void HTTPResponse::setStatusMessage(const std::string& message) {
 	_statusMessage = message;
 }
 
-void HTTPResponse::setHeader(const std::string& key, const std::string& value) 
-{
+void HTTPResponse::setHeader(const std::string& key, const std::string& value) {
 	_headers[key] = value;
 }
 
-void HTTPResponse::setBody(const std::string& body) 
-{
-	_body = body;
+void HTTPResponse::appendToBody(const std::string& bodyPart) {
+	_body.append(bodyPart);
+}
+
+void HTTPResponse::setBodyResponse(const std::string& filePath) {
+	_filePath = filePath;
+	struct stat file_stat;
+	if (stat(filePath.c_str(), &file_stat) == -1) {
+		LOG_ERROR("Failed to stat file " + filePath + ": " + std::string(strerror(errno)));
+		throw std::runtime_error("Failed to stat file: " + filePath);
+	}
+	_fileSize = file_stat.st_size;
+}
+
+void HTTPResponse::setState(response_state state) {
+	_state = state;
+}
+
+std::string HTTPResponse::getHeader() const {
+	return _header;
+}
+
+std::string HTTPResponse::getBody() const {
+	return _body;
+}
+
+std::string HTTPResponse::getFilePath() const {
+	return _filePath;
+}
+
+size_t HTTPResponse::getContentLength() const {
+	return !_body.empty() ? _body.size() : _fileSize;
+}
+
+size_t HTTPResponse::getFileSize() const {
+	return _fileSize;
+}
+
+int HTTPResponse::getState() const {
+	return _state;
+}
+
+bool HTTPResponse::shouldCloseConnection() const {
+	// Retrieve the connection header from _request.
+	int reqStatus = _request->getStatusCode();
+	std::string connection = Utils::trim(_request->getHeaderValue("Connection"));
+
+	if (connection == "close")
+		return true;
+	if (connection == "keep-alive")
+		return false;
+	// For certain status codes, connection should close.
+	if (reqStatus == 400 || reqStatus == 408 || reqStatus == 414 ||
+		reqStatus == 431 || reqStatus == 501 || reqStatus == 505)
+		return true;
+	return false;
+}
+
+void HTTPResponse::buildHeader() {
 	std::ostringstream oss;
-	oss << _body.length();
-	setHeader("Content-Length", oss.str());
+	oss << _protocol << " " << _statusCode << " " << _statusMessage << "\r\n";
+	for (std::map<std::string, std::string>::const_iterator it = _headers.begin();
+	it != _headers.end(); ++it)
+	{
+		oss << it->first << ": " << it->second << "\r\n";
+	}
+	oss << "\r\n";
+	_header = oss.str();
 }
 
-void HTTPResponse::setResponse() 
+void HTTPResponse::buildResponse() 
 {
-	std::ostringstream response;
-	response << _protocol << " " << _statusCode << " " << _statusMessage << "\r\n";
-	for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end();++it)	
-		response << it->first << ": " << it->second << "\r\n";
-	response << "\r\n";
-	response << _body;
-	_response = response.str();
-	setState(FINISH);
-}
-
-std::string HTTPResponse::getResponse() const 
-{
-	return _response;
-}
-
-void HTTPResponse::handlePost()
-{
-	if (_matched_location.getUploadPath() != "")
-	{
-		// upload
-		std::string	resource = "./www/upload/" + _request->getUri();
-		std::ofstream file(resource.c_str());
-		if (!file)
-		{
-			// error creating file
-			return ;
-		}
-		file << _request->getBody();
-
-		setStatusCode(201);
-		setStatusMessage("Created");
-		setProtocol("HTTP/1.1");
-	}
-	else
-	{
-		std::string	resource = get_requested_resource(_matched_location);
-		if (access(resource.c_str(), F_OK) == 0)
-		{
-			if (get_resource_type(resource)) // file
-			{
-				if (_matched_location.if_location_has_cgi())
-				{
-					// cgi handel
-				}
-				else
-					buildErrorResponse(403, "Forbidden");
-			}
-			else // directory
-			{
-				if (is_uri_has_backslash_in_end(resource))
-				{
-					if (is_dir_has_index_files(resource, _matched_location.getIndex()))
-					{
-						if (_matched_location.if_location_has_cgi())
-						{
-							// cgi stuff
-						}
-						else
-							buildErrorResponse(403, "Forbidden");
-					}
-					else
-						buildErrorResponse(403, "Forbidden");
-				}
-				else
-					buildRediractionResponse(301, "Moved Permanently", _request->getPath() + "/");
-			}
-		}
-		else
-			buildErrorResponse(404, "Not Found");
-	}
-}
-
-void HTTPResponse::handleDelete()
-{
-	std::string	resource = get_requested_resource(_matched_location);
-	std::cout << "requested resource = " << resource << std::endl;
-	if (access(resource.c_str(), F_OK) == 0)
-	{
-		if (get_resource_type(resource)) // file
-		{
-			if (_matched_location.if_location_has_cgi())
-			{
-				// cgi stuff
-			}
-			else
-			{
-				// unlink the file
-				unlink(resource.c_str());
-				setStatusCode(204);
-				setStatusMessage("No Content");
-				setProtocol("HTTP/1.1");
-			}
-		}
-		else //directory 
-		{
-			if ( is_uri_has_backslash_in_end(resource) )
-			{
-				if (_matched_location.if_location_has_cgi())
-				{
-					if (is_dir_has_index_files(resource, _matched_location.getIndex()))
-					{
-						// cgi stuff
-					}
-					else
-						buildErrorResponse(403, "Forbidden");
-				}
-				else
-				{
-					delete_all_folder_content(resource);
-					setStatusCode(204);
-					setStatusMessage("No Content");
-					setProtocol("HTTP/1.1");
-				}
-			}
-			else
-				buildErrorResponse(409, "Conflict");
-		}
-	}
-	else
-		buildErrorResponse(404, "Not Found");
-}
-
-int HTTPResponse::buildResponse()
-{
-	// don t forget to handel non-finish request if you have to.
-	if (is_req_well_formed())
-		return -1;
-	
-	get_matched_location_for_request_uri(_request->getPath());
-	std::cout << "matched location = " << _matched_location.getPath() << std::endl ;
-	if (!_hasMatchedLocation)
-	{
-		buildErrorResponse(404 ,"Not Found");
-		return -1;
-	}
-	if (_matched_location.is_location_have_redirection())
-	{
-		buildRediractionResponse(_matched_location.getRedirectCode() 
-			, "Moved Permanently", _matched_location.getRedirectPath());
-		return 1;
-	}
-	if (!_matched_location.isMethodAllowed(_request->getMethod()))
-	{
-		buildErrorResponse(405, "Method Not Allowed");
-		return -1;
-	}
-	if (_request->getMethod() == "GET")
-		handleGet(_matched_location);
+	if (_request->getState() == ERRORE)
+		buildErrorResponse(_request->getStatusCode());
+	else if (_request->getLocation() && _request->getLocation()->hasRedirection())
+		handleRedirect();
+	else if (_request->getMethod() == "GET")
+		handleGet();
 	else if (_request->getMethod() == "POST")
 		handlePost();
 	else if (_request->getMethod() == "DELETE")
 		handleDelete();
-	// print();
-	return 1;
-}
-
- 
-void HTTPResponse::get_matched_location_for_request_uri(const std::string& requestUri) 
-{
-    std::string    uri = requestUri[requestUri.size() - 1] == '/' ? requestUri : (requestUri + "/");
-    std::map<std::string, LocationConfig> map_locations = _client->getServer()->getLocations();
-    std::vector<LocationConfig> best_matches;
-    size_t longestMatchLength = 0;
-
-    for (std::map<std::string, LocationConfig>::iterator it = map_locations.begin()
-    ; it != map_locations.end();it++)
-    {
-        std::string path = it->first;
-        path = path[path.size() - 1] == '/' ? path : (path + "/");
-        if (path == uri)
-        {
-            _hasMatchedLocation = true;
-            _matched_location = it->second ;
-            return ;
-        }
-        if ( uri.compare(0, path.size(), path) == 0 && longestMatchLength < path.size())
-        {
-            _matched_location = it->second;
-            _hasMatchedLocation = true;
-            longestMatchLength = path.size();
-        }
-    }
-}
-
-void HTTPResponse::handleGet(LocationConfig location)
-{
-	std::string resource = get_requested_resource(location);
-	if (access(resource.c_str(), F_OK) == 0)
-	{
-		if (get_resource_type(resource))// true if it is a regular file
-		{
-			if (location.if_location_has_cgi())
-			{
-				// code of cgi
-			}
-			else
-				buildSuccessResponse(resource);
-		}
-		else// is a directory
-		{
-			if (is_uri_has_backslash_in_end(resource))
-			{
-				if (is_dir_has_index_files(resource, location.getIndex()))
-				{
-					if (location.if_location_has_cgi())
-					{
-						// run the cgi
-					}
-					else
-						buildSuccessResponse(resource + location.getIndex());
-				}
-				else
-				{
-					if (location.getAutoindex())
-					{
-						/*
-							resource is a directory that exist and have backslash at the end and there
-							is no index file in the location of it
-						*/
-						std::vector<std::string> ls;
-						DIR	*dir = opendir(resource.c_str());
-						if (dir == NULL)
-						{
-							if (access(resource.c_str(), R_OK | X_OK))
-								buildErrorResponse(403, "Forbidden");
-							else
-								buildErrorResponse(500, "Internal Server Error");
-							return ;
-						}
-						struct dirent* entry = readdir(dir);
-						while ((entry = readdir(dir)) != NULL)
-						{
-							if (std::string(entry->d_name) == "." || std::string(entry->d_name) == "..")
-								continue ;
-							ls.push_back(entry->d_name);
-						}
-						buildAutoIndexResponse(ls, _request->getPath()); 
-					}
-					else
-						buildErrorResponse(403 , "Forbidden");
-				}
-			}
-			else
-			{
-				// make a 301 redirection to request
-				// uri with “/” addeed at the end
-				buildRediractionResponse(301, "Moved Permanently",  _request->getPath() + "/");
-			}
-		}
-	}
 	else
-		buildErrorResponse(404, "Not Found");
+		buildErrorResponse(405);
 }
 
-
-void HTTPResponse::setState(response_state state)
+void HTTPResponse::buildErrorResponse(int statusCode) 
 {
-	if (this->_state == FINISH)
-		return (LOG_DEBUG("[setState (response)] Response already finished"));
-	if (this->_state == state)
-		return (LOG_DEBUG("[setState (response)] Response already in this state"));
-
-	this->_state = state;
-}
-
-// new
-
-bool HTTPResponse::is_req_well_formed()
-{
-	std::string encoding = _request->getHeaderValue("Transfer-Encoding");
-	std::string content_lenght = _request->getHeaderValue("Content-Length");
-	if (!encoding.empty() && encoding != "chunked")
-	{
-		buildErrorResponse(501 ,"Not Implemented");
-		return true;
-	}
-	if (encoding.empty() && content_lenght.empty() && _request->getMethod() == "POST")
-	{
-		buildErrorResponse(400, "Bad Request");
-		return true;
-	}
-	std::string uri = _request->getUri();
-	size_t index = uri.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~:/?#[]@!$&'()*+,;=");
-	if (index != std::string::npos)
-	{
-		buildErrorResponse(400, "Bad Request");
-		return true;
-	}
-	if (uri.size() > 2048)
-	{
-		buildErrorResponse(414, "Request-URI Too Long");
-		return true;
-	}
-	if (_request->getBody().size() > _client->getServer()->getClientMaxBodySize() )
-	{
-		buildErrorResponse(413, "Request Entity Too Large");
-		return true;
-	}
-	return false;
-}
-
- const std::string HTTPResponse::get_requested_resource(const LocationConfig& location)
-{
-    std::string root = location.getRoot();
-    std::string loc_path = location.getPath();
-    std::string path = _request->getPath();
-
-    if (!loc_path.empty() && loc_path[loc_path.size() - 1] == '/')
-        loc_path.erase(loc_path.size() - 1, 1);
-
-    if (path.size() >= loc_path.size())
-        path.erase(0, loc_path.size());
-    else
-        path.clear();
-
-    if (!root.empty() && !path.empty() &&
-        root[root.size() - 1] == '/' && path[0] == '/')
-        path.erase(0, 1);
-
-    std::string fullPath = root + path;
-
-    return fullPath;
-}
-
-bool HTTPResponse::get_resource_type(std::string resource)
-{
-    struct stat path_stat;
-	stat(resource.c_str(), &path_stat);
-	if (S_ISDIR(path_stat.st_mode))
-		return false; // is a diractory
-	return true;
-}
-
-bool HTTPResponse::is_uri_has_backslash_in_end(const std::string& resource)
-{
-	if (resource.empty())
-		return false;
-	if (resource[resource.size() - 1] == '/')
-		return true;
-	return false;
-}
-
-bool HTTPResponse::is_dir_has_index_files(const std::string& resource, const std::string& index)
-{
-	//TODO this is not good
-	
-	std::string	fullPath = resource + index;
-	if (access(fullPath.c_str(), F_OK) == 0 && !_matched_location.getIndex().empty())
-		return true;
-	return false;
-}
-
-
-std::string HTTPResponse::readFileContent(const std::string& filePath) const 
-{
-	std::ifstream file(filePath.c_str(), std::ios::binary);
-	if (!file.is_open()) 
-		throw std::runtime_error("Could not open file: " + filePath);
-
-	std::stringstream buffer;
-	buffer << file.rdbuf();
-	return buffer.str();
-}
-
-void  HTTPResponse::buildSuccessResponse(const std::string& fullPath)
-{
-	std::string fileContent = readFileContent(fullPath);
-	std::ostringstream response;
-
-	setStatusCode(_statusCode);
-	setStatusMessage(_statusMessage);
-	setProtocol("HTTP/1.1");
-	setHeader("Content-Type", Utils::getMimeType(fullPath));
-	setHeader("Connection", "keep-alive"); // keep-alive
-	setBody(fileContent);
-
-	setResponse();
-}
-
-void HTTPResponse::buildAutoIndexResponse(const std::vector<std::string>& list, const std::string& path) 
-{
-	std::stringstream	ss;
-	
-	ss	<< "<!DOCTYPE html>"
-		<< "<html>"
-		<< "<head>"
-		<< "<title>Index of "<< path << "</title>"
-		<< "</head>"
-		<< "<body>"
-		<< "<h1>Index of " << path <<" </h1>"
-		<< "<ul>"
-		<<  "<li><a href=\"../\">../</a></li>";
-	for (std::vector<std::string>::const_iterator it = list.begin(); it != list.end(); it++)
-		ss << "<li><a href=\"" << *it << "\">" << *it << "</a></li>";
-	ss	<< "</ul>"
-		<< "</body>"
-		<< "</html>";
-	std::string body;
-	body = ss.str();
-	setStatusCode(_statusCode);
-	setProtocol("HTTP/1.1");
-	setStatusMessage(_statusMessage);
-	setHeader("Content-Type", "text/html");
-	setHeader("Connection", "close");
-	setBody(body);
-	setResponse();
-}
-
-void  HTTPResponse::buildErrorResponse(int statusCode, const std::string& message)
-{
-
-	ServerConfig* config = _client->getServer();
-	const std::map<int, std::string>& error_pages = config->getErrorPages();
-
-	std::map<int, std::string>::const_iterator it = error_pages.find(statusCode);
-
-	std::string file_name = it->second;
-	std::cout << "file = " << file_name << std::endl;
-	std::cout << "code_error = " << statusCode << std::endl;
-	std::string fileContent = readFileContent(file_name);
-	std::string statusMsg = message.empty() ? "Error" : message;
-	
+	std::string defaultPage = _request->getServer()->getErrorPage(statusCode);
+	setProtocol(_request->getProtocol());
 	setStatusCode(statusCode);
-	setStatusMessage(message);
-	setProtocol("HTTP/1.1");
-	setHeader("Content-Type", Utils::getMimeType(file_name));
-	setHeader("Connection", "close");
-	setBody(fileContent);
-	
-	this->setResponse();
-}
-
-void HTTPResponse::buildRediractionResponse(int code, const std::string& message , const std::string& newLocation)
-{
-	std::stringstream	ss;
-	setStatusCode(code);
-	setStatusMessage(message);
-	setProtocol("HTTP/1.1");
-
-	setHeader("Location", newLocation);// maybe modified
+	setStatusMessage(Utils::getMessage(statusCode));
+	setHeader("Server", "1337webserver");
+	setHeader("Date", Utils::getCurrentDate());
 	setHeader("Content-Type", "text/html");
-	setHeader("Connection", "close");
-	
-	ss << "<!DOCTYPE html>" ;
-	ss << "<html>" ;
-	ss << "<head><title>301 Moved Permanently</title></head>" ;
-	ss << "<body>" ;
-	ss << "<h1>Moved Permanently</h1>" ;
-	ss << "<p>The document has moved <a href=\"" ;
 
-	ss << _request->getPath() + "/" << "\">here</a>.</p>" ;
-	
-	ss << "</body>" ;
-	ss << "</html>" ;
-	setBody(ss.str());
-	setResponse();
+	if (Utils::fileExists(defaultPage)) {
+		setBodyResponse(defaultPage);
+		setHeader("Content-Length", Utils::toString(getFileSize()));
+	} else {
+		appendToBody(defaultPage);
+		setHeader("Content-Length", Utils::toString(_body.size()));
+	}
+	setHeader("Connection", shouldCloseConnection() ? "close" : "keep-alive");
+	buildHeader();
+	setState(HEADER_SENT);
 }
 
-
-
-std::string	append_backslash(const std::string& dir, const std::string& file)
-{
-	if (dir.size() != 0 && dir[dir.size() - 1] == '/')
-		return dir + file;
-	else
-		return dir + "/" + file;
+void HTTPResponse::buildSuccessResponse(const std::string& fullPath) {
+	setProtocol(_request->getProtocol());
+	setStatusCode(_request->getStatusCode());
+	setStatusMessage(Utils::getMessage(_request->getStatusCode()));
+	setHeader("Server", "1337webserver");
+	setHeader("Date", Utils::getCurrentDate());
+	setHeader("Connection", shouldCloseConnection() ? "close" : "keep-alive");
+	setHeader("Content-Type", Utils::getMimeType(fullPath));
+	setBodyResponse(fullPath);
+	setHeader("Content-Length", Utils::toString(getContentLength()));
+	buildHeader();
+	setState(FINISH);
 }
 
-void HTTPResponse::delete_all_folder_content(const std::string &resource)
+void HTTPResponse::handleCGIRequest() 
 {
-	// list the directory content
-	// we access the content one by one
-	// if it is a file unlink it
-	// if it is a diractory delete_all_folder_content recursion
-	// delete the directory it self
-	DIR	*dir = opendir(resource.c_str());
-	if (dir == NULL)
-	{
-		LOG_ERROR("error opendir");
-		return ;
-	}
-	struct dirent*	entry = readdir(dir);
-	while ((entry = readdir(dir)) != NULL)
-	{
-		if (std::string(entry->d_name) == "." || std::string(entry->d_name) == "..")
-			continue ;
-		std::string	new_resource = append_backslash(resource, std::string(entry->d_name));
-		if (get_resource_type(new_resource))
-			unlink(new_resource.c_str());
-		else
-			delete_all_folder_content(new_resource);
-	}
-	rmdir(resource.c_str());
-}
+	LOG_INFO("cgi request came in");
 
-
-
-
-void	HTTPResponse::print()
-{
-	std::cout << "-----------------------------------\n";
-	std::cout << "HTTP Response: \n";
+	CGI	cgi(*_request);
+	cgi.init();
+	cgi.execute();
 	
-	std::cout << "status code :" << _statusCode << std::endl;
-	std::cout << "status message: " << _statusMessage << std::endl;
-	std::cout << "protocol: " << _protocol << std::endl;
-	for (std::map<std::string, std::string>::iterator it = _headers.begin()
-		; it != _headers.end(); ++it )
+	// appendToBody("output");
+	// setProtocol(_request->getProtocol());
+	// setStatusCode(_request->getStatusCode());
+	// setStatusMessage(Utils::getMessage(_request->getStatusCode()));
+	// setHeader("Server", "1337webserver");
+	// setHeader("Date", Utils::getCurrentDate());
+	// setHeader("Connection", shouldCloseConnection() ? "close" : "keep-alive");
+	// setHeader("Content-Type", "text/html");
+	// setHeader("Content-Length", Utils::toString(getContentLength()));
+	// buildHeader();
+	// setState(FINISH);
+}
+
+void HTTPResponse::handleGet() 
+{
+	std::string resource = _request->getResource();
+	if (resource.empty()) 
 	{
-		std::cout << it->first << " : " << it->second << std::endl;
+		buildErrorResponse(404);
+		return;
 	}
-	std::cout << "body: \n";
-	std::cout << _body << std::endl;
-	std::cout << "-----------------------------------\n";
+	else if (_request->isCgiRequest()) //?
+	{
+		handleCGIRequest();
+	}
+	else if (_request->getLocation() && _request->getLocation()->isAutoIndexOn() && Utils::isDirectory(resource)) 
+	{
+		handleAutoIndex();
+		return;
+	}
+	else if (Utils::fileExists(resource)) 
+	{
+		buildSuccessResponse(resource);
+		return;
+	}
+	else 
+	{
+		buildErrorResponse(403);
+		return;
+	}
+}
+
+void HTTPResponse::handlePost() 
+{
+	std::string resource = _request->getResource();
+	if (resource.empty() || !Utils::fileExists(resource)) 
+	{
+		buildErrorResponse(404);
+		return;
+	}
+	std::string body = "Resource created successfully\n";
+	setProtocol(_request->getProtocol());
+	setStatusCode(201);
+	setStatusMessage("Created");
+	setHeader("Content-Type", "text/plain");
+	setHeader("Server", "1337webserver");
+	setHeader("Date", Utils::getCurrentDate());
+	setHeader("Connection", shouldCloseConnection() ? "close" : "keep-alive");
+	appendToBody(body);
+	setHeader("Content-Length", Utils::toString(_body.size()));
+	buildHeader();
+	setState(FINISH);
+}
+
+void HTTPResponse::handleDelete() {
+	std::string resource = _request->getResource();
+	if (resource.empty() || !Utils::fileExists(resource)) {
+		buildErrorResponse(404);
+		return;
+	}
+	if (Utils::isDirectory(resource)) {
+		buildErrorResponse(403);
+		return;
+	}
+	if (std::remove(resource.c_str()) != 0) {
+		LOG_ERROR("Failed to delete file " + resource + ": " + std::string(strerror(errno)));
+		buildErrorResponse(500);
+		return;
+	}
+	setProtocol(_request->getProtocol());
+	setStatusCode(200);
+	setStatusMessage("OK");
+	setHeader("Content-Type", "text/plain");
+	setHeader("Server", "1337webserver");
+	setHeader("Date", Utils::getCurrentDate());
+	setHeader("Connection", shouldCloseConnection() ? "close" : "keep-alive");
+	appendToBody("Resource deleted successfully\n");
+	setHeader("Content-Length", Utils::toString(_body.size()));
+	buildHeader();
+	setState(HEADER_SENT);
+}
+
+void HTTPResponse::handleRedirect() 
+{
+	const LocationConfig* location = _request->getLocation();
+	if (!location || !location->hasRedirection()) {
+		buildErrorResponse(500);
+		return;
+	}
+	int code = location->getRedirectCode();
+	std::string reason = Utils::getMessage(code);
+	std::string target = location->getRedirectPath();
+	setProtocol(_request->getProtocol());
+	setStatusCode(code);
+	setStatusMessage(reason);
+	setHeader("Content-Type", "text/html");
+	setHeader("Location", target);
+	setHeader("Server", "1337webserver");
+	setHeader("Date", Utils::getCurrentDate());
+	setHeader("Connection", shouldCloseConnection() ? "close" : "keep-alive");
+
+	appendToBody("<html><head><title>");
+	appendToBody(Utils::toString(code));
+	appendToBody(" ");
+	appendToBody(reason);
+	appendToBody("</title></head><body><h1>");
+	appendToBody(Utils::toString(code));
+	appendToBody(" ");
+	appendToBody(reason);
+	appendToBody("</h1><hr><center>");
+	appendToBody("1337webserver");
+	appendToBody("</center></body></html>");
+
+	setHeader("Content-Length", Utils::toString(_body.size()));
+	buildHeader();
+	setState(HEADER_SENT);
+}
+
+void HTTPResponse::handleAutoIndex() 
+{
+	std::string directory_path = _request->getResource();
+	if (!Utils::isDirectory(directory_path)) 
+	{
+		buildErrorResponse(404);
+		return;
+	}
+	std::vector<std::string> entries = Utils::listDirectory(directory_path);
+	std::string req_path = _request->getPath();
+	if (req_path.empty() || req_path[req_path.size()-1] != '/')
+		req_path += '/';
+	// Build an HTML directory listing.
+	appendToBody("<!DOCTYPE html><html><head>");
+	appendToBody("<title>Index of ");
+	appendToBody(req_path);
+	appendToBody("</title></head><body><h1>Index of ");
+	appendToBody(req_path);
+	appendToBody("</h1><hr><pre>");
+	if (req_path != "/")
+		appendToBody("<a href=\"../\">../</a>\n");
+	for (size_t i = 0; i < entries.size(); ++i) 
+	{
+		std::string full_path = directory_path + "/" + entries[i];
+		bool is_dir = Utils::isDirectory(full_path);
+		std::string link_name = entries[i] + (is_dir ? "/" : "");
+		appendToBody("<a href=\"" + req_path + link_name + "\">" + link_name + "</a>\n");
+	}
+	appendToBody("</pre><hr></body></html>");
+	setProtocol(_request->getProtocol());
+	setStatusCode(200);
+	setStatusMessage("OK");
+	setHeader("Content-Type", "text/html");
+	setHeader("Content-Length", Utils::toString(_body.size()));
+	buildHeader();
 }

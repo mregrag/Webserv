@@ -1,49 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Webserv 1337 - HTTP Server Project</title>
+		<link rel="stylesheet" href="style.css">
+	</head>
+	<body>
+		<header>
+			<h1>Webserv 1337</h1>
+			<p class="tagline">A robust HTTP/1.1 server implementation in C++98</p>
+		</header>
 
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Webserv</title>
-	<link rel="stylesheet" href="./style.css">
-	<link rel="icon" href="./favicon.svg" type="image/svg">
-</head>
+		<div class="container">
+		<section id="team-section">
+			<h2>Our Team</h2>
+			<p class="section-intro">Meet the talented developers behind Webserv 1337</p>
 
-<body>
+			<div class="team-members">
+				<div class="team-member">
+					<div class="member-photo">
+						<img src="https://cdn.intra.42.fr/users/08ee19ff5e4cc4d8393cf1a77dd05467/mregrag.jpg" alt="mregrag">
+					</div>
+					<h3>mregrag</h3>
+					<p class="member-title">Backend Developer</p>
+					<p class="member-info">Network protocols specialist, responsible for core server implementation</p>
+					<div class="member-socials">
+					</div>
+				</div>
 
-	<section class="wrapperAll container">
-
-		<div class="mainTitle">
-			<img class="logo42" src="./42-logo.png" alt="42 logo">
-			<h1 class="title">WEBSERV</h1>
-		</div>
-
-		<section class="features">
-
-			<div class="wrapper">
-				<h2 class="subtitle">GET</h2>
-				<a href="GET.html" class="link"><div class="button">Try</div></a>
+				<div class="team-member">
+					<div class="member-photo">
+						<img src="https://cdn.intra.42.fr/users/5dac1b07a683a8962b24619c0b5e2694/zel-oirg.jpg" alt="zel-oirg">
+					</div>
+					<h3>zel-oirg</h3>
+					<p class="member-title">Frontend Developer</p>
+					<p class="member-info">UI/UX design, HTTP request parsing and CGI implementation</p>
+					<div class="member-socials">
+					</div>
+				</div>
 			</div>
-
-			<div class="wrapper">
-				<h2 class="subtitle">POST</h2>
-				<a href="POST.html" class="link"><div class="button">Try</div></a>
-			</div>
-
-			<div class="wrapper">
-				<h2 class="subtitle">DELETE</h2>
-				<a href="DELETE.html" class="link"><div class="button">Try</div></a>
-			</div>
-
-			<div class="wrapper">
-				<h2 class="subtitle">UPLOAD</h2>
-				<a href="./upload.html" class="link"><div class="button">Try</div></a>
-			</div>
-
 		</section>
 
-	</section>
+			<section id="about-section">
+				<h2>About the Project</h2>
+				<p>Webserv 1337 is a lightweight HTTP/1.1 server implementation built from scratch using C++98. This project demonstrates our understanding of network programming, HTTP protocols, and server architecture principles.</p>
 
-</body>
+				<div class="feature-list">
+					<div class="feature">
+						<h3>HTTP/1.1 Compliant</h3>
+						<p>Fully implements the HTTP/1.1 protocol specifications</p>
+					</div>
 
+					<div class="feature">
+						<h3>Multiple HTTP Methods</h3>
+						<p>Supports GET, POST, and DELETE methods</p>
+					</div>
+
+					<div class="feature">
+						<h3>CGI Support</h3>
+						<p>Execute server-side scripts through Common Gateway Interface</p>
+					</div>
+
+					<div class="feature">
+						<h3>Configuration File</h3>
+						<p>Customize server behavior through simple configuration files</p>
+					</div>
+
+					<div class="feature">
+						<h3>Error Handling</h3>
+						<p>Proper error responses with custom error pages</p>
+					</div>
+
+					<div class="feature">
+						<h3>Session Management</h3>
+						<p>Cookie-based session handling for stateful applications</p>
+					</div>
+					
+				</div>
+				<div class="cta-buttons">
+					<a href="services.html" class="btn primary-btn">Explore Services</a>
+				</div>
+
+			</section>
+
+		</div>
+
+		<footer>
+			<div class="copyright">
+				<p>Created with ❤️ by 42 Network students | &copy; 2025</p>
+			</div>
+		</footer>
+	</body>
 </html>
+

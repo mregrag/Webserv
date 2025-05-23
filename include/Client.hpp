@@ -1,59 +1,62 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   Client.hpp                                         :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/04/10 16:06:48 by mregrag           #+#    #+#             */
-/*   Updated: 2025/05/01 19:13:33 by mregrag          ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
 
-#include <netinet/in.h>
+#include <string>
 #include <ctime>
+#include <netinet/in.h>
+#include <sys/types.h>
 #include "ServerConfig.hpp"
+#include "HTTPRequest.hpp"
+#include <cstring>
+#include "HTTPResponse.hpp"
 
-# include <string>
-class HTTPResponse;
-class HTTPRequest;
-class Client {
-	private:
-		int _fd;                    // Client socket file descriptor
-		ServerConfig* _server;      // Associated server configuration
-		time_t _lastActivity;       // Last activity timestamp
-		std::string _readBuffer;    // Buffer for incoming request data
-		std::string _writeBuffer;   // Buffer for outgoing response data
-		size_t _bytesSent;          // Bytes sent for current response
-		HTTPRequest* _request;      // Request parser
-		HTTPResponse* _response;    // Response generator
 
-		// Private to prevent copying (avoids FD duplication)
-		Client(const Client&);
-		Client& operator=(const Client&);
-
-	public:
-		Client(int fd, ServerConfig* server);
-		~Client();
-
-		// Handle epoll events
-		void handleRead();  // Process EPOLLIN (read request)
-		void handleWrite(); // Process EPOLLOUT (send response)
-
-		// Getters
-		int getFd() const;
-		time_t getLastActivity() const;
-		ServerConfig* getServer() const;
-		HTTPRequest* getRequest();
-		HTTPResponse* getResponse();
-
-		// Utility methods
-		void updateActivity();
-		void reset(); // Reset for keep-alive connections
-		void clearBuffers();
+enum ClientState 
+{
+	CLIENT_READING,
+	CLIENT_WRITING,
+	CLIENT_ERROR
 };
 
-#endif 
+class HTTPRequest;
+class HTTPResponse;
+class CGIHandler;
+class Client {
+public:
+	Client(int fd, ServerConfig* server);
+	~Client();
+
+	std::string& getReadBuffer();
+	void setReadBuffer(const char* data, ssize_t bytesSet);
+	void setClientAddress(const struct sockaddr_in& addr);
+	ssize_t getResponseChunk(char* buffer, size_t bufferSize);
+	ssize_t getHeaderResponse(char* buffer, size_t bufferSize);
+	ssize_t getStringBodyResponse(char* buffer, size_t bufferSize);
+	ssize_t getFileBodyResponse(char* buffer, size_t bufferSize);
+
+	int getFd() const;
+	time_t getLastActivity() const;
+	void updateActivity();
+	ClientState getState() const;
+	HTTPRequest* getRequest();   // Returns a pointer to the embedded request object.
+	HTTPResponse* getResponse(); // Returns a pointer to the embedded response object.
+	ServerConfig* getServer() const;
+	bool shouldKeepAlive() const;
+	bool hasTimedOut(time_t currentTime, time_t timeout) const;
+	void reset();
+
+private:
+	int _fd;
+	ServerConfig* _server;
+	HTTPRequest _request;      // Directly embedded HTTPRequest
+	HTTPResponse _response;    // Directly embedded HTTPResponse
+	int _bytesSent;
+	size_t _headersSize;
+	time_t _lastActivity;
+	ClientState _state;
+	std::string _readBuffer;
+	struct sockaddr_in _addr;
+	std::ifstream _fileStream; // Used for file-based response body
+};
+
+#endif // CLIENT_HPP

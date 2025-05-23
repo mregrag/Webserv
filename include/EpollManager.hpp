@@ -1,30 +1,26 @@
-#ifndef EPOLLMANAGER_HPP
-#define EPOLLMANAGER_HPP
-
-#include <vector>
+#pragma once
 #include <sys/epoll.h>
-#include <stdexcept>
-#include <unistd.h>
-#include <cstring>
+#include <vector>
+#include <string>
 
-class EpollManager
+class EpollManager 
 {
-	private:
-		int _epollFd;
+public:
+	explicit EpollManager(size_t maxEvents);
+	~EpollManager();
 
-	public:
-		EpollManager();
-		~EpollManager();
+	// Prevent copying
+	EpollManager(const EpollManager&);
+	EpollManager& operator=(const EpollManager&);
 
-		// No copy constructor or assignment operator
-		EpollManager(const EpollManager& other);
-		EpollManager& operator=(const EpollManager& other);
+	bool add(int fd, uint32_t events);
+	bool modify(int fd, uint32_t events);
+	bool remove(int fd);
+	int wait(int timeout = -1);
+	const epoll_event& getEvent(size_t index) const;
+	int getFd() const { return _epollFd; }
 
-		void addFd(int fd, uint32_t events);
-		void modifyFd(int fd, uint32_t events);
-		void removeFd(int fd);
-		int wait(std::vector<struct epoll_event>& events, int timeout);
+private:
+	int _epollFd;
+	std::vector<epoll_event> _events;
 };
-
-
-#endif

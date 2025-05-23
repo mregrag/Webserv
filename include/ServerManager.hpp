@@ -1,66 +1,79 @@
-#ifndef SERVER_MANAGER_HPP
-#define SERVER_MANAGER_HPP
+#ifndef SERVERMANAGER_HPP
+#define SERVERMANAGER_HPP
 
-#include <iostream>
-#include <vector>
 #include <map>
+#include <vector>
 #include <string>
-#include <stdexcept>
-#include <sys/epoll.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include "ServerConfig.hpp"
 #include "EpollManager.hpp"
-#include "Logger.hpp"
-#include "../include/Client.hpp"
+#include "ServerConfig.hpp"
+#include "Client.hpp"
 
 class ServerManager 
 {
-	public:
-		ServerManager();
-		~ServerManager();
+public:
 
-		void setupServers(const std::vector<ServerConfig>& servers);
+	//?
+	//?
 
-		void run();
+	// Constructs the ServerManager with a list of server configurations.
+	// The timeout, maxClients, and maxEvents default to macros defined in Config.hpp.
+	// Note: The caller only provides the servers vector.
+	ServerManager(const std::vector<ServerConfig>& servers);
 
-	private:
-		static const int MAX_EVENTS = 100; // Maximum epoll events per wait
-		static const int TIMEOUT_CHECK_INTERVAL = 10; // Seconds between timeout checks
-		static const int CONNECTION_TIMEOUT = 30; // Seconds for client inactivity
+	~ServerManager();
 
-		std::vector<ServerConfig> _servers; // Server configurations
-		std::map<int, ServerConfig*> _serverMap; // Maps server fds to ServerConfig
-		std::map<int, Client*> _clients; // Maps client fds to Client objects
-		EpollManager _epollManager; // Manages epoll instance
+	// Initializes the servers (sets them up and registers their sockets with epoll).
+	bool init();
 
-		// Configure a socket as non-blocking
-		void configureSocket(int fd);
+	// Runs the main event loop.
+	void run();
 
-		// Register a server socket with epoll
-		void registerServerSocket(int server_fd, ServerConfig* server);
+	// Stops the event loop.
+	void stop();
 
-		// Close and clean up all resources
-		void cleanup();
+	// Sets the client timeout value (overriding the default macro value).
+	void setClientTimeout(int seconds);
 
-		// Process a single epoll event
-		void handleEvent(const struct epoll_event& event);
+	// Returns the count of active client connections.
+	size_t getActiveClientCount() const;
 
-		// Accept a new client connection
-		void acceptNewConnection(int server_fd);
+private:
+	// Looks up the server configuration that owns the given fd.
+	ServerConfig* findServerByFd(int fd);
+	Client* findClientByFd(int fd);
 
-		// Handle client read/write events
-		void processClientEvent(int client_fd, uint32_t events);
+	// Accepts a new client connection from the given server socket.
+	bool acceptClient(int serverFd, ServerConfig* serverConfig);
 
-		// Close a client connection
-		void closeClientConnection(int client_fd);
+	// Handles events for a given client.
+	void handleClient(int fd, uint32_t events);
+	void handleEvent(const epoll_event& event);
 
-		// Check for and close timed-out client connections
-		void checkClientTimeouts();
-		void handleReadEvent(Client* client);
-		void handleWriteEvent(Client* client);
+	// Reads data from the client.
+	bool receiveFromClient(Client* client);
+
+	// Sends response data to the client.
+	bool sendToClient(Client* client);
+
+	// Cleans up an individual client.
+	void cleanupClient(int fd, const std::string& reason);
+
+	// Periodically checks for and removes timed-out clients.
+	bool checkClientTimeouts();
+
+	EpollManager _epollManager;
+	bool         _running;
+	int          _clientTimeout;
+	int          _maxClients;
+
+	// Stored server configurations (as provided in the constructor).
+	std::vector<ServerConfig> _servers;
+
+	// A map of server socket file descriptor to its ServerConfig.
+	std::map<int, ServerConfig*> _serverMap;
+
+	// Active client connections mapped by their file descriptor.
+	std::map<int, Client*> _clients;
 };
 
-#endif
-
-
+#endif // SERVERMANAGER_HPP

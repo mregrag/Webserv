@@ -23,7 +23,7 @@
 
 #define LOG_DEBUG(msg)   Logger::getInstance().debug(msg)
 #define LOG_INFO(msg)    Logger::getInstance().info(msg)
-#define LOG_WARNING(msg) Logger::getInstance().warning(msg)
+#define LOG_WARN(msg) Logger::getInstance().warning(msg)
 #define LOG_ERROR(msg)   Logger::getInstance().error(msg)
 #define LOG_FATAL(msg)   Logger::getInstance().fatal(msg)
 

@@ -6,7 +6,7 @@
 /*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/04/18 17:22:42 by mregrag           #+#    #+#             */
-/*   Updated: 2025/05/01 18:59:23 by mregrag          ###   ########.fr       */
+/*   Updated: 2025/05/08 19:30:02 by mregrag          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -44,6 +44,7 @@ namespace Utils
 	int urlDecode(std::string& str);
 	size_t stringToSizeT(const std::string& str);
 	bool isValidMethodToken(const std::string& method);
+	std::string getCurrentDate();
 
 	size_t skipLeadingWhitespace(const std::string& str);
 	
@@ -64,6 +65,12 @@ namespace Utils
 	bool isValidHeaderValueChar(char c);
 
 	std::string extractAttribute(const std::string& headers, const std::string& key);
+	std::vector<std::string> listDirectory(const std::string& path);
+	std::string readFileContent(const std::string& filePath);
+	std::string getFileExtension(const std::string& path);
+	bool isExecutable(const std::string& path);
+	char** mapToEnvp(const std::map<std::string, std::string>& env);
+	void freeEnvp(char** envp);
 }
 
 
