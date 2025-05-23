@@ -13,18 +13,14 @@
 
 NAME        = Webserv
 
-CC          = c++
-# CFLAGS      = -Wall -Wextra -Werror -std=c++98
+CC          = c++ -g3
+# CFLAGS      = -fsanitize=address
 RM          = rm -f
 
 HPP     = $(shell find ./include -name '*.hpp')
 SRCS    = $(shell find ./src -name '*.cpp')
 
 OBJS        = $(SRCS:.cpp=.o)
-
-me: all
-	clear
-	./Webserv 2> file.log
 
 all: $(NAME)
 

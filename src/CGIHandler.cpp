@@ -11,15 +11,17 @@ CGI::CGI(HTTPRequest &request)
 
 CGI::~CGI(void)
 {
-    for	(int i = 0; _args[i]; i++)
-	    delete [] _args[i];
-    delete [] _args;
+    if (_args) {
+        for (int i = 0; _args[i]; ++i)
+            free(_args[i]);
+        delete[] _args;
+    }
 
-    for	(int i = 0; _env[i]; i++)
-	    delete [] _env[i];
-    delete [] _env;
-
-    close(_tmpFileFd);
+    if (_env) {
+        for (int i = 0; _env[i]; ++i)
+            free(_env[i]);
+        delete[] _env;
+    }
 
     // request body file fd not closed
 
@@ -117,7 +119,7 @@ void	CGI::execute(void)
         exit(EXIT_FAILURE);
     }
 
-    sleep(1);
+    usleep(500);
 
     _request.pid = _pid;
 }

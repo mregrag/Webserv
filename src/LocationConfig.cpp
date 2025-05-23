@@ -236,6 +236,7 @@ bool LocationConfig::hasRedirection() const
 
 bool LocationConfig::hasCgi() const 
 {
+	return (true);
 	return (!_cgiExtension.empty() && !_cgiPath.empty());
 }
 
