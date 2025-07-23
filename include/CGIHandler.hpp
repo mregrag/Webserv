@@ -1,34 +1,57 @@
-#include <fcntl.h>
-#include <string.h>
-#include <iostream>
+#ifndef CGI_HANDLER_HPP
+#define CGI_HANDLER_HPP
+
+#include <string>
+#include <map>
+#include <sys/stat.h>
+#include "HTTPRequest.hpp"
+#include <wait.h>
 #include <unistd.h>
-#include <stdio.h>
-#include "../include/Utils.hpp"
-#include "../include/Logger.hpp"
-#include "../include/HTTPRequest.hpp"
+#include <fcntl.h>
 
-class    CGI
+
+class CGIHandler
 {
-    int    _pid;
-    int    _requestBodyFileFd;
-    int    _tmpFileFd;
-
-    HTTPRequest    &_request;
-
-    // execve args
-    char    **_args;
-    char    **_env;
-
-    void    _initTmpFile(void);
-    void    _initArgs(void);
-    void    _initEnv(void);
-
 public:
-    CGI(HTTPRequest &reuqest);
-    ~CGI(void);
+	CGIHandler();
+	~CGIHandler();
 
-    void    init(void);
-    void    execute(void);
+	void init(HTTPRequest* request);
+	void start();
 
-    friend std::ostream &operator<<(std::ostream &os, const CGI &cgi);
+	bool isRunning(int& status);
+	void killProcess();
+	bool hasTimedOut();
+
+	time_t getStartTime() const;
+	std::string getOutputFile() const;
+	pid_t getPid() const;
+
+	void validatePaths() const;
+	void buildEnv();
+	void buildArgv();
+	void cleanEnv();
+	void cleanArgv();
+	void cleanup();
+
+private:
+	pid_t           _pid;
+	int             _ouFd;
+	int             _inFd;
+
+	std::string     _execPath;
+	std::string     _scriptPath;
+	std::string     _outputFile;
+	std::string     _extension;
+
+	char**          _envp;
+	char**          _argv;
+
+	std::map<std::string, std::string> _env;
+
+	time_t          _startTime;
+
 };
+
+#endif
+

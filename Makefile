@@ -1,39 +1,46 @@
-# **************************************************************************** #
-#                                                                              #
-#                                                         :::      ::::::::    #
-#    Makefile                                           :+:      :+:    :+:    #
-#                                                     +:+ +:+         +:+      #
-#    By: zel-oirg <zel-oirg@student.42.fr>          +#+  +:+       +#+         #
-#                                                 +#+#+#+#+#+   +#+            #
-#    Created: 2025/01/24 21:18:10 by mregrag           #+#    #+#              #
-#    Updated: 2025/05/08 16:40:29 by mregrag          ###   ########.fr        #
-#                                                                              #
-# **************************************************************************** #
+NAME	= webserv
+CC	= c++
+CFLAGS	= -Wall -Wextra -Werror -std=c++98
 
+SRC	= 	src/main.cpp \
+		src/Client.cpp \
+		src/CGIHandler.cpp \
+		src/ConfigParser.cpp \
+		src/Epoll.cpp \
+		src/HTTPRequest.cpp \
+		src/HTTPResponse.cpp \
+		src/Logger.cpp \
+		src/LocationConfig.cpp \
+		src/ServerConfig.cpp \
+		src/ServerManager.cpp \
+		src/Utils.cpp
 
-NAME        = Webserv
+HPP		= include/Client.hpp \
+		include/CGIHandler.hpp \
+		include/ConfigParser.hpp \
+		include/Epoll.hpp \
+		include/HTTPRequest.hpp \
+		include/HTTPResponse.hpp \
+		include/Logger.hpp \
+		include/LocationConfig.hpp \
+		include/ServerConfig.hpp \
+		include/ServerManager.hpp \
+		include/Utils.hpp
 
-CC          = c++
-CFLAGS      = -fsanitize=address -g3
-RM          = rm -f
-
-HPP     = $(shell find ./include -name '*.hpp')
-SRCS    = $(shell find ./src -name '*.cpp')
-
-OBJS        = $(SRCS:.cpp=.o)
+OBJ		= $(SRC:.cpp=.o)
 
 all: $(NAME)
 
-$(NAME): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $(NAME)
+$(NAME): $(OBJ)
+	$(CC) $(CFLAGS) -o $(NAME) $(OBJ)
 
 %.o: %.cpp $(HPP)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	$(RM) $(OBJS)
+	rm -f $(OBJ)
 
 fclean: clean
-	$(RM) $(NAME)
+	rm -f $(NAME)
 
 re: fclean all

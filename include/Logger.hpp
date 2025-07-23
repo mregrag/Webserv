@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   Logger.hpp                                         :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: mregrag <mregrag@student.42.fr>            +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/04/09 21:51:56 by mregrag           #+#    #+#             */
-/*   Updated: 2025/04/09 21:52:50 by mregrag          ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #ifndef LOGGER_HPP
 #define LOGGER_HPP
 
@@ -45,9 +33,6 @@ class Logger
 
 		static Logger& getInstance();
 
-		void setLogLevel(LogLevel level);
-		void enableColors(bool enable);
-
 		void debug(const std::string& message);
 		void info(const std::string& message);
 		void warning(const std::string& message);
@@ -62,9 +47,7 @@ class Logger
 		void log(LogLevel level, const std::string& message);
 		std::string getTimestamp();
 		std::string getLevelString(LogLevel level);
-
 		LogLevel _currentLevel;
-		bool _colorsEnabled;
 };
 
 

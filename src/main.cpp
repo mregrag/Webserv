@@ -1,52 +1,38 @@
-#include "../include/ConfigParser.hpp"
 #include "../include/ServerManager.hpp"
 #include "../include/Logger.hpp"
-#include <signal.h>
 
 ServerManager* globalServer = NULL;
 
 void signal_handler(int signum) 
 {
+	std::cout << signum << std::endl;
+	(void) signum;
 	if (globalServer) 
-	{
-		LOG_INFO("Signal " + Utils::toString(signum) + " received. Stopping server gracefully...");
 		globalServer->stop();
-	}
 }
-
 
 int main(int argc, char* argv[])
 {
 	signal(SIGINT, signal_handler);
-	signal(SIGTERM, signal_handler);
-	try {
+	try 
+	{
 		std::string configFile = "./config/default.conf";
 		if (argc > 1)
 			configFile = argv[1];
 
-		ConfigParser parser(configFile);
-		parser.parseFile();
-
-		std::vector<ServerConfig> servers = parser.getServers();
-		if (servers.empty()) {
-			LOG_ERROR("No valid server configurations found");
-			return 1;
-		}
-
-		// Pass all server configurations to the ServerManager constructor.
-		ServerManager serverManager(servers);
+		ServerConfig config(configFile);
+		ServerManager serverManager(config.getServers());
 		globalServer = &serverManager;
 
 		if (!serverManager.init()) 
-		{
-			LOG_ERROR("Failed to initialize server");
-			return 1;
-		}
+			throw std::runtime_error("Failed to initialize server.");
 
 		serverManager.run();
-		return 0;
-	} catch (const std::exception& e) {
-		LOG_ERROR("Fatal error: " + std::string(e.what()));
+	} 
+	catch (const std::exception& e) 
+	{
+		LOG_ERROR(std::string(e.what()));
 		return 1;
 	}
+	return (0);
 }

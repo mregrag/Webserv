@@ -2,61 +2,39 @@
 #define CLIENT_HPP
 
 #include <string>
+#include <vector>
 #include <ctime>
-#include <netinet/in.h>
-#include <sys/types.h>
-#include "ServerConfig.hpp"
-#include "HTTPRequest.hpp"
 #include <cstring>
+#include <sys/socket.h>
+#include <unistd.h>
+#include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
+#include "ServerConfig.hpp"
 
-
-enum ClientState 
+class Client
 {
-	CLIENT_READING,
-	CLIENT_WRITING,
-	CLIENT_ERROR
-};
+private:
+	int                             _fd;
+	HTTPRequest                     _request;
+	HTTPResponse                    _response;
+	std::string                     _readBuffer;
+	time_t                          _lastActivity;
 
-class HTTPRequest;
-class HTTPResponse;
-class CGIHandler;
-class Client {
 public:
-	Client(int fd, ServerConfig* server);
+	Client(int fd, std::vector<ServerConfig>& servers);
 	~Client();
 
-	std::string& getReadBuffer();
-	void setReadBuffer(const char* data, ssize_t bytesSet);
-	void setClientAddress(const struct sockaddr_in& addr);
-	ssize_t getResponseChunk(char* buffer, size_t bufferSize);
-	ssize_t getHeaderResponse(char* buffer, size_t bufferSize);
-	ssize_t getStringBodyResponse(char* buffer, size_t bufferSize);
-	ssize_t getFileBodyResponse(char* buffer, size_t bufferSize);
+	void readRequest();
+	void sendResponse();
+	void reset();
 
 	int getFd() const;
 	time_t getLastActivity() const;
-	void updateActivity();
-	ClientState getState() const;
-	HTTPRequest* getRequest();   // Returns a pointer to the embedded request object.
-	HTTPResponse* getResponse(); // Returns a pointer to the embedded response object.
-	ServerConfig* getServer() const;
+	HTTPRequest* getRequest();
+	HTTPResponse* getResponse();
 	bool shouldKeepAlive() const;
-	bool hasTimedOut(time_t currentTime, time_t timeout) const;
-	void reset();
 
-private:
-	int _fd;
-	ServerConfig* _server;
-	HTTPRequest _request;      // Directly embedded HTTPRequest
-	HTTPResponse _response;    // Directly embedded HTTPResponse
-	int _bytesSent;
-	size_t _headersSize;
-	time_t _lastActivity;
-	ClientState _state;
-	std::string _readBuffer;
-	struct sockaddr_in _addr;
-	std::ifstream _fileStream; // Used for file-based response body
+	void updateActivity();
 };
 
-#endif // CLIENT_HPP
+#endif
